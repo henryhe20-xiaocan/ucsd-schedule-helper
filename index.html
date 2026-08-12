@@ -126,7 +126,8 @@
     body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     body * { visibility: hidden; }
     #printArea, #printArea * { visibility: visible; }
-    #printArea { display: block; position: absolute; left: 0; top: 0; width: 100%; }
+    header, main { display: none !important; }
+    #printArea { display: block; position: static; width: 100%; }
     #printArea {
       --card: #fff; --line: #dfe4ee; --line-strong: #c3cfdf;
       --text: #1f2937; --muted: #6b7280; --accent: #182b49;
@@ -2013,10 +2014,7 @@ function scheduleToSVG(s, label) {
       const x = leftW + di * dayW + 3;
       const y = headerH + (m.start - startMin) / 30 * rowH + 2;
       const h = Math.max((m.end - m.start) / 30 * rowH - 4, 14);
-      const seats = (c.capacity != null && c.seats_available != null)
-        ? " · " + (c.capacity - c.seats_available) + "/" + c.capacity + "人"
-        : "";
-      const lines = (c.module_code + " " + (c.section_code || "") + "\n" + (m.room || "") + seats).split("\n");
+      const lines = (c.module_code + " " + (c.section_code || "") + "\n" + (m.room || "")).split("\n");
       blocks += '<rect x="' + x + '" y="' + y + '" width="' + (dayW - 6) + '" height="' + h + '" rx="5" fill="' + color + '"/>';
       lines.forEach((ln, li) => {
         blocks += '<text x="' + (x + 6) + '" y="' + (y + 14 + li * 12) + '" font-size="11" fill="#fff" font-family="sans-serif">' + escapeHtml(ln) + "</text>";
@@ -2171,10 +2169,7 @@ function renderCalendar(s, targetEl) {
       if (m.date) continue; // 一次性期中考试只进详情卡片
       blk.style.background = color;
       blk.style.color = "#fff";
-      const seats = (c.capacity != null && c.seats_available != null)
-        ? " · " + (c.capacity - c.seats_available) + "/" + c.capacity + "人"
-        : "";
-      blk.innerHTML = "<b>" + c.module_code + "</b>" + (c.section_code || "") + " · " + (m.room || m.building || "?") + seats +
+      blk.innerHTML = "<b>" + c.module_code + "</b>" + (c.section_code || "") + " · " + (m.room || m.building || "?") +
         (c.instructors && c.instructors.length ? " · " + c.instructors[0] : "");
       blk.title = c.module_code + " " + c.module_name + "\n" + c.section_code + "\n" +
         (m.start_display || "") + "-" + (m.end_display || "") + "\n" + (m.room || "") + "\n老师: " + (c.instructors || []).join(", ");
