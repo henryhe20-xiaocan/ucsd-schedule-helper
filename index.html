@@ -690,6 +690,7 @@ const I18N_EN = {
   " 个可行班": " feasible lectures",
   "分组": "Group ",
   "剩余座位": "seats left",
+  "无其他组件": "no extra components",
   "展开/折叠分班": "Expand/collapse sections",
   "组合 ": "Set ",
   "展开/折叠分班": "Expand/collapse sections",
@@ -2749,7 +2750,7 @@ function renderWizard() {
     for (const mod of decidedKeys) {
       const c = wizardCourses().find(x => x.module_code === mod);
       const d = wizardDecided()[mod];
-      const comps = Object.entries(d.components || {}).map(([t, code]) => t + ":" + code).join("，") || "组件待定";
+      const comps = Object.entries(d.components || {}).map(([t, code]) => t + ":" + code).join("，") || (d.noComponents ? "无其他组件" : "组件待定");
       html += '<span class="badge">' + escapeHtml(mod) + " 分组" + d.family + "（" + escapeHtml(comps) + '） <button class="ghost" data-change="' + mod + '">改</button></span> ';
     }
     html += "</div>";
@@ -2897,6 +2898,7 @@ function bindWizardButtons() {
   const confirm = $("wizardBody") && document.getElementById("wizConfirm");
   if (confirm) confirm.addEventListener("click", () => {
     const d = wizardDecided()[state.wizard.current];
+    if (!currentComponentOptions().length) d.noComponents = true;
     for (const grp of currentComponentOptions()) {
       if (!d.components[grp.type]) {
         const first = grp.sections.find(s => s.count > 0);
