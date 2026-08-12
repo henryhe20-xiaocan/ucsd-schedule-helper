@@ -1,5 +1,7 @@
 # UCSD Schedule Helper (UCSD 排课助手)
 
+[中文](README.zh-CN.md) | **English**
+
 The new TSS system has made course planning painful for many students, and the school's official planner is... okay at best. So I built my own planner that satisfies my needs. I used this tool to plan my own Fall 2026 schedule — it works, it is genuinely useful, and I hope it helps you too.
 
 A local-first course scheduling tool for UCSD students. It pulls real section data from UCSD Class Planner, walks you through lecture/discussion choices, generates every conflict-free schedule, and can ask DeepSeek for advice — all in your browser, no account required.
