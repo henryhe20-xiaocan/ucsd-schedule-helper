@@ -1,0 +1,3291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UCSD 排课助手</title>
+<style>
+  :root {
+    --bg: #eef2f8;
+    --card: #ffffff;
+    --line: #dbe3ef;
+    --line-strong: #c3cfdf;
+    --text: #1f2937;
+    --muted: #64748b;
+    --accent: #182b49;
+    --accent-strong: #101f3a;
+    --accent-soft: #eef2fa;
+    --on-accent: #ffffff;
+    --cta: #ffcd00;
+    --cta-strong: #e6b800;
+    --on-cta: #182b49;
+    --danger: #dc2626;
+    --danger-soft: #fff5f5;
+    --danger-line: #fecaca;
+    --ring: #182b49;
+    --header-bg: #182b49;
+    --header-text: #ffffff;
+    --chip: rgba(255,255,255,.08);
+    --chip-line: rgba(255,255,255,.22);
+    --soft-bg: #f4f7fb;
+    --soft-line: #e8edf4;
+    --input-bg: #ffffff;
+    --track: #e8edf4;
+    --tip-bg: #fff8e6;
+    --tip-line: #f2d98b;
+    --tip-text: #7a5b12;
+    --far-bg: #fef2f2;
+    --far-line: #fca5a5;
+    --far-text: #b91c1c;
+    --shadow: 0 1px 2px rgba(15,23,42,.06);
+    --radius: 10px;
+  }
+  body.theme-dark {
+    --bg: #0b1220;
+    --card: #172032;
+    --line: #2b3a55;
+    --line-strong: #3b4d6e;
+    --text: #e5ecf6;
+    --muted: #8ea3c0;
+    --accent: #38bdf8;
+    --accent-strong: #0ea5e9;
+    --accent-soft: #0e2a44;
+    --on-accent: #0b1220;
+    --cta: #f59e0b;
+    --cta-strong: #d97706;
+    --on-cta: #0b1220;
+    --danger: #f87171;
+    --danger-soft: rgba(248,113,113,.10);
+    --danger-line: rgba(248,113,113,.32);
+    --ring: #38bdf8;
+    --header-bg: #0a0f1c;
+    --header-text: #e5ecf6;
+    --chip: rgba(255,255,255,.06);
+    --chip-line: rgba(255,255,255,.14);
+    --soft-bg: #101b2e;
+    --soft-line: #26354f;
+    --input-bg: #0f1a2c;
+    --track: #24334d;
+    --tip-bg: #3a2e10;
+    --tip-line: #6b5520;
+    --tip-text: #fcd34d;
+    --far-bg: rgba(248,113,113,.12);
+    --far-line: rgba(248,113,113,.35);
+    --far-text: #fca5a5;
+    --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    background: var(--header-bg);
+    color: var(--header-text);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 {
+    font-size: 17px; margin: 0; font-weight: 700; letter-spacing: -0.01em;
+    display: inline-flex; align-items: center; gap: 9px;
+  }
+  header h1::before {
+    content: ""; width: 20px; height: 20px; border-radius: 6px; flex: 0 0 auto;
+    background: var(--cta);
+  }
+  header label { display: inline-flex; align-items: center; gap: 6px; color: inherit; opacity: .8; font-size: 12px; }
+  header .sub { color: inherit; opacity: .75; font-size: 12px; }
+  header select {
+    padding: 0 10px; height: 32px; border-radius: 8px; border: 1px solid var(--chip-line);
+    background: var(--chip); color: inherit; font-size: 13px;
+  }
+  header select option { color: var(--text); background: var(--card); }
+  #themeBtn {
+    width: 34px; height: 34px; padding: 0; border-radius: 8px;
+    background: var(--chip); border: 1px solid var(--chip-line); color: inherit;
+    display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  #themeBtn:hover { background: var(--chip-line); }
+  #themeBtn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #themeBtn .icon-moon { display: none; }
+  body.theme-dark #themeBtn .icon-sun { display: none; }
+  body.theme-dark #themeBtn .icon-moon { display: inline-block; }
+  #wizardCard { display: none; }
+  .mode-wizard #wizardCard { display: block; }
+  .mode-wizard #optCard, .mode-wizard #scheduleBtns { display: none; }
+  #printArea { display: none; }
+  @media print {
+    @page { margin: 12mm; }
+    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    body * { visibility: hidden; }
+    #printArea, #printArea * { visibility: visible; }
+    #printArea { display: block; position: absolute; left: 0; top: 0; width: 100%; }
+    #printArea {
+      --card: #fff; --line: #dfe4ee; --line-strong: #c3cfdf;
+      --text: #1f2937; --muted: #6b7280; --accent: #182b49;
+      --soft-bg: #f8fafc; --soft-line: #e8edf4; --input-bg: #fff;
+      color-scheme: light;
+    }
+    #printArea h2 { text-align: center; margin: 0 0 14px; font-size: 19px; }
+    #printArea .cal-wrap, #printArea #calendar {
+      max-height: none; overflow: visible;
+      border: 1px solid var(--line); background: var(--card);
+      print-color-adjust: exact; -webkit-print-color-adjust: exact;
+    }
+    #printArea .cal-grid { min-width: 0; grid-template-columns: 56px repeat(5, 1fr); }
+    #printArea .cal-header { background: var(--soft-bg); }
+    #printArea .cal-block, #printArea .cal-header, #printArea .cal-day {
+      print-color-adjust: exact; -webkit-print-color-adjust: exact;
+    }
+    #printArea .gap-pill { display: none; }
+    #printArea .card, #printArea .course-card { break-inside: avoid; page-break-inside: avoid; }
+  }
+  main {
+    display: grid;
+    grid-template-columns: var(--left-w, 380px) 6px 1fr;
+    grid-template-rows: minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px 20px 40px;
+    height: calc(100vh - 55px);
+    overflow: hidden;
+  }
+  main > section {
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 4px;
+    padding-bottom: 24px;
+  }
+  main > section:last-child .cal-wrap { max-height: none; overflow: visible; }
+  #splitter {
+    cursor: col-resize;
+    align-self: stretch;
+    border-radius: 3px;
+    transition: background .15s;
+  }
+  #splitter:hover, #splitter.active { background: var(--accent); opacity: .45; }
+  @media (max-width: 1000px) {
+    main { grid-template-columns: 1fr; grid-template-rows: none; height: auto; overflow: visible; }
+    main > section { overflow: visible; max-height: none; min-height: 0; }
+    #splitter { display: none; }
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 { font-size: 14px; margin: 0 0 12px; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input[type=text], input[type=number], input[type=password], select {
+    padding: 7px 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    font-size: 13px;
+    background: var(--input-bg);
+    color: var(--text);
+    height: 34px;
+    transition: border-color .15s ease;
+  }
+  textarea { width: 100%; resize: vertical; height: auto; min-height: 76px; }
+  button {
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--on-accent);
+    padding: 8px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    height: 34px;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 550;
+    transition: background .15s ease, border-color .15s ease, color .15s ease, opacity .15s ease;
+  }
+  button:hover { background: var(--accent-strong); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.ghost { background: var(--card); color: var(--text); border: 1px solid var(--line-strong); }
+  button.ghost:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+  button.danger { background: var(--danger); color: #fff; }
+  button.danger:hover { filter: brightness(.94); }
+  button.danger.ghost { background: var(--danger-soft); color: var(--danger); border-color: var(--danger-line); }
+  button.danger.ghost:hover { background: var(--danger-line); color: var(--danger); border-color: var(--danger-line); }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  .muted { color: var(--muted); font-size: 12px; }
+  .err { color: var(--danger); font-size: 13px; margin-top: 8px; white-space: pre-wrap; }
+  .ok { color: #15803d; }
+  #courseList { margin-top: 12px; }
+  .course-card { border: 1px solid var(--line); border-radius: 9px; padding: 10px; margin-bottom: 10px; background: var(--card); transition: border-color .15s ease; }
+  .course-card:hover { border-color: var(--accent); }
+  .course-head { display: flex; justify-content: flex-start; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .course-head b { font-size: 14px; }
+  .course-head .units { color: var(--muted); font-size: 12px; }
+  .caret-btn { background: none; border: 0; cursor: pointer; color: var(--muted); font-size: 13px; padding: 2px 6px; min-height: 0; height: auto; transition: transform .15s; }
+  .caret-btn.open { transform: rotate(90deg); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+  .lock-inline { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .course-head button[data-action="remove"] { margin-left: auto; }
+  .lock-inline select { padding: 4px 6px; height: 27px; }
+  .sec-body { margin-top: 8px; }
+  .lock-row { margin: 8px 0 6px; display: flex; align-items: center; gap: 8px; }
+  .sec-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+  .sec-table th, .sec-table td { border-top: 1px solid var(--line); padding: 4px 6px; text-align: left; vertical-align: top; }
+  .sec-table th { color: var(--muted); font-weight: 600; }
+  .rmp { color: var(--accent); text-decoration: none; white-space: nowrap; }
+  .rmp:hover { text-decoration: underline; }
+  .rmp-score { display: block; color: #16a34a; font-size: 11px; margin-top: 2px; }
+  .badge { display: inline-block; background: var(--accent-soft); color: var(--accent-strong); border-radius: 5px; padding: 1px 6px; font-size: 11px; margin-left: 4px; font-weight: 550; }
+  .schedule-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .schedule-btns button {
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--line-strong);
+    padding: 6px 10px;
+    border-radius: 7px;
+    font-size: 12px;
+    min-height: 0;
+    height: 30px;
+    font-weight: 500;
+  }
+  .schedule-btns button:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-strong); }
+  .schedule-btns button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .cal-wrap { overflow: auto; max-height: 640px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+  .cal-grid { display: grid; grid-template-columns: 58px repeat(5, minmax(120px, 1fr)); min-width: 760px; }
+  .cal-header { position: sticky; top: 0; background: var(--soft-bg); border-bottom: 1px solid var(--line); padding: 8px; text-align: center; font-weight: 600; z-index: 3; }
+  .cal-axis { position: relative; border-top: 1px solid var(--soft-line); }
+  .cal-time { position: absolute; right: 8px; color: var(--muted); font-size: 11px; transform: translateY(-50%); }
+  .cal-day {
+    border-left: 1px solid var(--soft-line);
+    position: relative;
+    background: repeating-linear-gradient(to bottom, var(--card) 0, var(--card) 33px, var(--soft-bg) 33px, var(--soft-bg) 34px);
+  }
+  .cal-block {
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    border-radius: 6px;
+    padding: 4px 5px;
+    font-size: 11px;
+    line-height: 1.25;
+    overflow: hidden;
+    cursor: default;
+    box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  }
+  .cal-block.pin-click { cursor: pointer; }
+  .cal-block.pinned { outline: 2px solid #ffffff; box-shadow: 0 0 0 2px #1f2937, 0 1px 3px rgba(0,0,0,.12); }
+  .cal-block.cal-exam { outline: 2px dashed var(--soft-line); }
+  .gap-pill {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--soft-bg);
+    color: var(--muted);
+    border: 1px solid var(--soft-line);
+    border-radius: 999px;
+    font-size: 10px;
+    padding: 1px 7px;
+    cursor: pointer;
+    z-index: 2;
+    white-space: nowrap;
+  }
+  .gap-pill.gap-far { color: var(--far-text); border-color: var(--far-line); background: var(--far-bg); }
+  .final-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+  #details svg.final-svg { background: var(--card); border: 1px solid var(--line); }
+  #details svg.final-svg .f-head { fill: var(--text); }
+  #details svg.final-svg .f-time { fill: var(--muted); }
+  #details svg.final-svg .f-line { stroke: var(--line); }
+  .final-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .cal-block b { display: block; font-size: 11px; }
+  .walking-list, .final-list { font-size: 13px; margin: 4px 0; }
+  .walking-list div, .final-list div { padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .ds-output {
+    background: var(--soft-bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    white-space: pre-wrap;
+    font-size: 13px;
+    line-height: 1.6;
+    max-height: 480px;
+    overflow: auto;
+  }
+  .ds-thinking {
+    background: var(--soft-bg);
+    color: var(--muted);
+    font-size: 12px;
+    max-height: 220px;
+    border-color: var(--soft-line);
+  }
+  .ds-output code { background: var(--soft-bg); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .ds-output pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    overflow: auto;
+    font-size: 12px;
+    white-space: pre-wrap;
+  }
+  .ds-output pre code { background: transparent; color: inherit; padding: 0; }
+  .ds-output ul, .ds-output ol { margin: 6px 0 6px 22px; padding: 0; }
+  .ds-output p { margin: 6px 0; }
+  .ds-output h2, .ds-output h3, .ds-output h4 { margin: 10px 0 4px; }
+  .ds-chat { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+  .chat-msg {
+    max-width: 85%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .chat-user { align-self: flex-end; background: var(--accent); color: var(--on-accent); border-bottom-right-radius: 3px; }
+  .chat-ai { align-self: flex-start; background: var(--soft-bg); color: var(--text); border: 1px solid var(--line); border-bottom-left-radius: 3px; }
+  .chat-ai .ds-thinking-inline {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 6px;
+    white-space: pre-wrap;
+    max-height: 180px;
+    overflow-y: auto;
+    border-left: 3px solid var(--soft-line);
+    padding-left: 8px;
+  }
+  .conv-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 2px;
+    border-bottom: 1px dashed var(--line);
+    font-size: 13px;
+    flex-wrap: wrap;
+  }
+  .conv-item button { padding: 3px 8px; font-size: 12px; min-height: 0; height: auto; }
+  .progress-track { height: 10px; background: var(--track); border-radius: 6px; overflow: hidden; }
+  .progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width .25s; }
+  .tip { background: var(--tip-bg); border: 1px solid var(--tip-line); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--tip-text); margin-bottom: 12px; }
+  #wizardBody .wiz-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; }
+  #wizardBody .wiz-pick { justify-content: flex-start; gap: 8px; height: auto; min-height: 40px; padding: 8px 10px; text-align: left; }
+  #wizardBody .wiz-pick::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
+  #wizardBody .wiz-lecture {
+    display: block; width: 100%; height: auto; min-height: 44px; text-align: left;
+    padding: 9px 12px; margin-bottom: 8px; line-height: 1.45;
+    background: var(--card); border: 1px solid var(--line-strong); color: var(--text);
+  }
+  #wizardBody .wiz-lecture:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  #wizardBody .wiz-lecture b { display: block; font-size: 13px; color: var(--text); }
+  #wizardBody .wiz-lecture .wiz-meta { color: var(--muted); font-size: 12px; }
+  #wizardBody .badge { display: inline-flex; align-items: center; gap: 4px; }
+  #wizardBody .badge button { margin-left: auto; height: 20px; min-height: 0; padding: 0 8px; font-size: 11px; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+    button:active { transform: none; }
+  }
+</style>
+</head>
+<body class="mode-wizard">
+<header>
+  <h1>UCSD 排课助手</h1>
+  <div class="row">
+    <label>学期
+      <select id="termSel"></select>
+      <span class="sub" id="termUpdated"></span>
+    </label>
+    <button id="themeBtn" type="button" title="切换到黑夜模式" aria-label="切换白天/黑夜">
+      <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <label>语言
+      <select id="langSel">
+        <option value="zh">中文</option>
+        <option value="en">English</option>
+      </select>
+    </label>
+    <span class="sub" id="status"></span>
+  </div>
+</header>
+
+<main>
+  <!-- 左侧：选课 -->
+  <section>
+    <div class="card">
+      <h2>添加课程</h2>
+      <div class="row">
+        <input type="text" id="courseInput" list="courseSuggest" placeholder="例如 MATH 20D / CSE 29" style="flex:1; min-width:180px">
+        <datalist id="courseSuggest"></datalist>
+        <button id="addBtn">添加</button>
+      </div>
+      <div class="muted" style="margin-top:6px">输入课程代码自动搜索（如 MATH-020D、CSE-029、JAPN-020A）</div>
+      <div id="courseMsg" class="err" style="margin-top:6px"></div>
+    </div>
+
+    <div class="card" id="optCard">
+      <h2>排课选项</h2>
+      <label class="row" style="margin-bottom:6px"><input type="checkbox" id="optOpen"> 只看有空位的分班</label>
+      <label class="row" style="margin-bottom:6px"><input type="checkbox" id="optWalk" checked> 估算楼宇间步行时间（UCSD 官方路线）</label>
+      <div class="row">
+        <button id="genBtn">生成全部可行课表</button>
+      </div>
+      <div id="genProgress" style="display:none; margin-top:10px">
+        <div class="progress-track"><div id="genProgressBar" class="progress-bar" style="width:0%"></div></div>
+        <div id="genProgressText" class="muted" style="margin-top:5px"></div>
+      </div>
+      <div id="genMsg"></div>
+    </div>
+
+    <div class="tip">
+      <b>小贴士：</b>先添加课程，再在每个课程卡片里“锁定老师”；
+      每个老师名下方会直接显示 Rate My Professor 评分（抓取失败时只显示名字）。
+      步行时间用的是 UCSD 官方 Wayfinding 路线服务。
+    </div>
+
+    <div id="courseList"></div>
+
+    <div class="card" id="wizardCard">
+      <h2>逐门向导</h2>
+      <div id="wizardBody"></div>
+    </div>
+
+    <div class="card">
+      <h2>收藏夹</h2>
+      <div class="row">
+        <button class="ghost" id="favSaveCombo">保存当前界面</button>
+      </div>
+      <div id="favList" class="conv-list" style="margin-top:8px"></div>
+    </div>
+
+    <div class="card">
+      <h2>高级</h2>
+      <div class="row">
+        <label>模式
+          <select id="modeSel">
+            <option value="wizard">逐门向导</option>
+            <option value="all">全部方案模式</option>
+          </select>
+        </label>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="ghost" id="refreshData">刷新课程数据</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="splitter" title="拖拽调整左侧宽度"></div>
+
+  <!-- 右侧：结果 -->
+  <section>
+    <div class="card">
+      <h2>可行课表
+        <button class="ghost" id="exportPng">导出PNG</button>
+        <button class="ghost" id="exportSvg">导出SVG</button>
+        <button class="ghost" id="exportPdf">导出PDF</button>
+      </h2>
+      <div id="scheduleBtns" class="schedule-btns"><span class="muted">生成后这里会列出所有不冲突的组合</span></div>
+      <div id="calendar"></div>
+      <div id="details" style="margin-top:12px"></div>
+      <div id="compareOut" style="margin-top:14px"></div>
+    </div>
+
+    <div class="card">
+      <h2>DeepSeek 问答</h2>
+      <div class="row" style="margin-bottom:8px">
+        <label style="flex:1">API Key
+          <input type="password" id="dsKey" placeholder="sk-..." style="width:100%">
+        </label>
+        <label>模型
+          <select id="dsModel">
+            <option value="flash-fast">deepseek-v4-flash（快速 · 不思考）</option>
+            <option value="flash-think">deepseek-v4-flash（思考）</option>
+            <option value="pro-think">deepseek-v4-pro（思考 · 最强）</option>
+          </select>
+        </label>
+      </div>
+      <div class="row" style="margin-bottom:8px">
+        <button class="ghost" id="dsKeyClear" type="button">清除已保存的 Key</button>
+        <span class="muted">Key 只保存在本机浏览器（localStorage），不会上传到任何服务器；可到 platform.deepseek.com 获取</span>
+      </div>
+      <label class="muted" for="dsPrompt">给 DeepSeek 的话（偏好、问题、要求都写这里；发送时自动带上当前课表）：</label>
+<textarea id="dsPrompt" rows="4">我希望早上的课不早于 9:30；数学和计算机课不要连着上；通勤只要不超过 10 分钟就行；中午 11am-2pm 之间最好留出约一个小时吃饭休息。</textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="dsAskBtn">发送问题</button>
+        <button class="ghost" id="copyBtn">复制当前课表文本</button>
+      </div>
+      <div id="dsMsg"></div>
+      <div id="dsChat" class="ds-chat" style="margin-top:10px; display:none"></div>
+      <div id="dsOut" style="margin-top:10px; display:none">
+        <div id="dsThinking" class="ds-output ds-thinking" style="display:none"></div>
+        <div id="dsAnswer" class="ds-output" style="margin-top:8px"></div>
+      </div>
+      <details style="margin-top:14px">
+        <summary style="cursor:pointer;font-size:14px;font-weight:600">对话记录（保存在本地 saved_data.json）</summary>
+        <div id="convList" class="conv-list" style="margin-top:6px"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" id="convClear">清空全部记录</button>
+        </div>
+      </details>
+    </div>
+  </section>
+</main>
+<div id="printArea"></div>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const DAYS = ["M", "T", "W", "R", "F"];
+const DAY_CN = { M: "周一", T: "周二", W: "周三", R: "周四", F: "周五", S: "周六", U: "周日" };
+const EN_DAY_ABBR = { M: "Mon", T: "Tue", W: "Wed", R: "Thu", F: "Fri", S: "Sat", U: "Sun" };
+const TYPE_ABBR = {
+  lecture: "LE", discussion: "DI", seminar: "SE", lab: "Lab",
+  tutorial: "TU", tu: "TU", se: "SE", studio: "ST",
+};
+const PALETTE = [
+  "#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6",
+  "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#14b8a6"
+];
+
+const state = {
+  term: "FA26",
+  courses: [],       // 已添加课程的详情
+  locks: {},         // module_code -> 老师名
+  pins: {},          // module_code -> 固定分班分组（如 "002"）
+  collapsed: {},     // module_code -> 是否折叠分班表格（默认折叠）
+  rmp: {},           // 老师名 -> RMP 评分（{avgRating, numRatings, ...}）
+  buildingCache: {}, // 楼宇代码 -> {lat, lon, name}
+  combos: [],        // 选课组合列表
+  wizard: {           // 逐门向导状态
+    decided: {},      // module_code -> {family, components:{type: section_code}}
+    current: null,    // 正在决定的课程
+    pinned: [],       // 在日历上固定的课程 module_code
+    draft: null,      // 当前课程的待确认选择（{family, mainType, components}）
+    loading: false,
+    feasibility: null,
+    conflictInfo: null,
+  },
+  conversations: [], // DeepSeek 对话记录
+  savedTimer: null,  // 自动保存防抖定时器
+  schedules: [],
+  selected: 0,
+  compare: [],       // 对比中的方案下标（最多 3 个）
+  options: {
+    only_open: false,
+    use_walking: true,
+  },
+};
+const pendingRmp = new Set(); // 正在抓取 RMP 的老师，避免重复请求
+let chatStreaming = false;   // DeepSeek 流式输出中（避免中途重建聊天框）
+
+// ---------- 中英文切换 ----------
+const UI_LANG = localStorage.getItem("uiLang") === "en" ? "en" : "zh";
+const EN_DAYS = { "一": "Mon", "二": "Tue", "三": "Wed", "四": "Thu", "五": "Fri" };
+const I18N_EN = {
+  "UCSD 排课助手": "UCSD Schedule Helper",
+  "学期": "Term",
+  "数据更新于 ": "Data updated ",
+  "刚刚": "just now",
+  " 分钟前": " min ago",
+  " 小时前": " hr ago",
+  " 天前": " day ago",
+  "切换到黑夜模式": "Switch to dark mode",
+  "切换到白天模式": "Switch to light mode",
+  "语言": "Language",
+  "添加课程": "Add Course",
+  "输入课程代码自动搜索（如 MATH-020D、CSE-029、JAPN-020A）": "Type a course code to search (e.g. MATH 100A, CSE 29)",
+  "例如 MATH 20D / CSE 29": "e.g. MATH 20D / CSE 29",
+  "排课选项": "Scheduling Options",
+  "只看有空位的分班": "Only show sections with open seats",
+  "估算楼宇间步行时间（UCSD 官方路线）": "Estimate walking time between buildings",
+  "生成全部可行课表": "Generate all schedules",
+  "正在生成…": "Generating…",
+  "正在准备…": "Preparing…",
+  "正在打包数据…": "Packing data…",
+  "正在枚举组合：已检查 ": "Enumerating combinations: checked ",
+  "，已找到 ": ", found ",
+  "正在计算步行时间：": "Calculating walking times: ",
+  "共找到 ": "Found ",
+  "个不冲突的组合（已按学分、步行时间排序）": " conflict-free schedules (sorted by credits and walking time)",
+  "个不冲突的组合": " conflict-free schedules",
+  "没有找到可行组合，试试放宽锁定老师或去掉“只看空位”": "No feasible schedule found. Try removing instructor locks or the “only open sections” filter",
+  "小贴士：": "Tip: ",
+  "先添加课程，再在每个课程卡片里“锁定老师”；": "Add courses first, then lock an instructor from each course card. ",
+  "每个老师名下方会直接显示 Rate My Professor 评分（抓取失败时只显示名字）。": "Rate My Professor ratings appear under each instructor name (name only if fetching fails).",
+  "步行时间用的是 UCSD 官方 Wayfinding 路线服务。": "Walking times use UCSD's official Wayfinding route service.",
+  "收藏夹": "Favorites",
+  "保存当前界面": "Save current state",
+  "高级": "Advanced",
+  "模式": "Mode",
+  "逐门向导": "Step-by-step wizard",
+  "全部方案模式": "All schedules mode",
+  "刷新课程数据": "Refresh course data",
+  "刷新中…": "Refreshing…",
+  "课程数据已刷新（座位数以 TSS 为准）": "Course data refreshed (seats follow TSS)",
+  "刷新失败：": "Refresh failed: ",
+  "可行课表": "Schedules",
+  "导出PNG": "Export PNG",
+  "导出SVG": "Export SVG",
+  "导出PDF": "Export PDF",
+  "生成后这里会列出所有不冲突的组合": "All conflict-free combinations will appear here after generation",
+  "共 ": "Total ",
+  " 个可行方案；当前显示第 ": " schedules; currently showing #",
+  " 个（": " (",
+  " 个方案）": " schedules)",
+  " 学分": " credits",
+  "学分，每天：": " credits, days: ",
+  "每天：": " days: ",
+  " · 步行 ": " · walk ",
+  " · 步行": " · walk",
+  " 分钟": " min",
+  "分钟": " min",
+  "学分": " credits",
+  "查看方案": "View schedule",
+  "查看": "View",
+  "加入对比": "Add to compare",
+  "开始对比": "Compare now",
+  "清除": "Clear",
+  "结束对比": "Close compare",
+  "方案对比": "Schedule comparison",
+  "方案 ": "Schedule ",
+  "方案": "Schedule",
+  "步行": "Walk",
+  "老师: ": "Instructor: ",
+  "老师：": "Instructor: ",
+  "期末考试（按日期）": "Final Exams (by date)",
+  "考试安排（非期末）": "One-off Exams (non-final)",
+  "没有期末考试信息": "No final exam information",
+  "没有非期末的一次性考试": "No one-off exams",
+  "考试 ": "Exam ",
+  "期末 ": "Final ",
+  "每周课间步行合计约 ": "Weekly walking between classes: about ",
+  "已关闭步行估算": "Walking estimate is off",
+  "部分楼宇无法匹配，步行时间仅供参考": "Some buildings could not be matched; walking times are approximate",
+  "无法估算": "cannot be estimated",
+  "，步行约 ": ", walk about ",
+  "拖拽调整左侧宽度": "Drag to resize the sidebar",
+  "还没有添加课程": "No courses added yet",
+  "移除": "Remove",
+  "添加": "Add",
+  " 个可行班": " feasible lectures",
+  "分组": "Group ",
+  "剩余座位": "seats left",
+  "展开/折叠分班": "Expand/collapse sections",
+  "组合 ": "Set ",
+  "展开/折叠分班": "Expand/collapse sections",
+  "固定分班：": "Fix family: ",
+  "锁定：": "Lock instructor: ",
+  "不限": "Any",
+  "不限老师（所有分班）": "No instructor lock (all sections)",
+  "分班": "Section",
+  "类型": "Type",
+  "时间": "Time",
+  "教室": "Room",
+  "老师": "Instructor",
+  "空位": "Seats",
+  "· 剩余座位：": " · seats left: ",
+  "剩余座位：": "seats left: ",
+  "人 · ": " ratings · ",
+  "%愿再上 · 难度": "% would retake · difficulty",
+  "愿再上": "would retake",
+  "难度": "difficulty",
+  "待定": "TBD",
+  "组件待定": "components pending",
+  "时间待定": "time TBD",
+  "尚未定班": "not decided yet",
+  "已定：分组": "Decided: Group",
+  "固定：分组": "Fixed: Group",
+  "各分组可行组合数：": "Feasible combos per family: ",
+  "可行课表总数：": "Total feasible schedules: ",
+  "可行课表样例（前": "Sample schedules (first ",
+  "个不同的组合）：": " distinct ones): ",
+  "学期：": "Term: ",
+  "分组": "Group",
+  " 分组": " Group",
+  " 种组合": " combos",
+  "种组合": " combos",
+  "不可行": "not feasible",
+  "已决定：": "Decided: ",
+  "改": "Edit",
+  "下一步：": "Next: ",
+  "按推荐顺序选一门（可行正课班少的优先）": "Pick a course (fewest feasible lectures first)",
+  " 个可行班）": " feasible lectures)",
+  "全部课程已决定！": "All courses decided!",
+  "生成最终课表并查看日历": "Generate final schedule & view calendar",
+  "选择其他课程": "Pick another course",
+  "选择正课班": "Choose a lecture",
+  "确认正课": "Confirm lecture",
+  "取消选择": "Cancel",
+  "选择讨论/实验等（可选）": "Choose discussion/lab (optional)",
+  "这门课没有其他组件，直接确认即可。": "This course has no other components; just confirm.",
+  "自动选择剩余": "Auto-pick the rest",
+  "确认这门课": "Confirm this course",
+  "正在计算可行空间…": "Calculating feasible space…",
+  "当前课程 ": "Current course ",
+  "的新选择与已定课程冲突，请先处理上方冲突提示（换正课班或列出替代）。": "'s new choice conflicts with decided courses. Resolve the conflict above (switch lecture or list alternatives).",
+  "列出可行替代": "List alternatives",
+  "换一个正课班": "Switch lecture",
+  "当前已定的选择互相冲突，没有可行组合。": "Your current choices conflict; no feasible combination.",
+  "正在计算每个已定课程的可行替代…": "Calculating alternatives for each decided course…",
+  " 可以改：": " can change:",
+  "没有找到可行替代，可能需要先改回刚才那门课。": "No alternatives found; you may need to change the previous course.",
+  "没有可行组合，请回去调整。": "No feasible combination; go back and adjust.",
+  "还有 ": " plus ",
+  "个组件变体，可到“全部方案模式”查看。": " component variants; see All Schedules mode.",
+  "选定课程后，这里会实时显示日历预览（格子里含已选人数/总人数）。": "After you pick courses, a live calendar preview appears here (blocks show enrolled/total seats).",
+  "先在上方添加课程，向导就会自动出现。": "Add courses above and the wizard will appear.",
+  "还没有收藏：保存当前界面会记住课程、向导进度和当前课表。": "Nothing saved yet: Save current state remembers courses, wizard progress, and the current schedule.",
+  "组合 ": "State ",
+  "组合": "State",
+  "加载": "Load",
+  "删除": "Delete",
+  "确定删除这个组合？": "Delete this saved state?",
+  "给这个选课组合起个名字：": "Name this saved state:",
+  "对话": "Chat",
+  "问答 ": "Q&A ",
+  "课表分析 ": "Schedule analysis ",
+  "方案推荐 ": "Schedule recommendation ",
+  "还没有保存的对话": "No saved conversations",
+  "确定清空全部对话记录？此操作不可恢复。": "Clear ALL conversation history? This cannot be undone.",
+  "Key 只保存在本机浏览器（localStorage），不会上传到任何服务器；可到 platform.deepseek.com 获取": "Key is stored only in this browser (localStorage), never uploaded; get one at platform.deepseek.com",
+  "给 DeepSeek 的话：": "Note for DeepSeek: ",
+  "未填写": "not set",
+  "请排序推荐。": "Please rank them.",
+  "请给出整体建议。": "Please give overall advice.",
+  "课程：": "Course: ",
+  "候选正课班：": "Candidate lectures:",
+  "当前课表：": "Current schedule:",
+  "对话记录（保存在本地 saved_data.json）": "Conversation history (stored locally in saved_data.json)",
+  "清空全部记录": "Clear all records",
+  "DeepSeek 问答": "DeepSeek Q&A",
+  "模型": "Model",
+  "清除已保存的 Key": "Clear saved key",
+  "已清除本地保存的 Key": "Saved key cleared",
+  "Key 只保存在本机浏览器（localStorage），不会上传到任何服务器": "The key is stored only in your browser (localStorage) and is never sent to any server",
+  "给 DeepSeek 的话（偏好、问题、要求都写这里；发送时自动带上当前课表）：": "Message for DeepSeek (preferences, questions, requests; your current schedule is attached automatically):",
+  "发送问题": "Ask",
+  "复制当前课表文本": "Copy current schedule",
+  "已复制到剪贴板": "Copied to clipboard",
+  "复制失败，请手动选择": "Copy failed; select manually",
+  "先输入你的问题": "Type your question first",
+  "请先填写 DeepSeek API Key": "Enter your DeepSeek API Key first",
+  "发送中…": "Sending…",
+  "思考中…": "Thinking…",
+  "生成回答中…": "Generating answer…",
+  "💭 正在思考…": "💭 Thinking…",
+  "⏳ 正在生成回答…": "⏳ Generating answer…",
+  "💭 思考过程": "💭 Reasoning",
+  "思考过程：": "Reasoning: ",
+  "正在分析当前课表…": "Analyzing current schedule…",
+  "分析中…": "Analyzing…",
+  "让 DeepSeek 分析当前课表": "Ask DeepSeek to analyze",
+  "让 DeepSeek 排剩余课程": "Ask DeepSeek to arrange remaining courses",
+  "让 DeepSeek 排序建议": "Ask DeepSeek to rank",
+  "DeepSeek 分析中…": "DeepSeek analyzing…",
+  "DeepSeek 排课中…": "DeepSeek arranging…",
+  "出错：": "Error: ",
+  "（无回答）": "(no answer)",
+  "（无问题）": "(no question)",
+  "（暂无）": "(none)",
+  "给 DeepSeek 的话：": "Message for DeepSeek: ",
+  "还没有可导出的课表：先选课或生成课表": "Nothing to export yet: add courses or generate a schedule first",
+  "课表方案 ": "Schedule #",
+  "PNG 导出失败，请改用 SVG 或 PDF": "PNG export failed; use SVG or PDF instead",
+  "加载学期失败: ": "Failed to load terms: ",
+  "请求失败 ": "Request failed ",
+  "生成失败": "Generation failed",
+  "计算失败：": "Calculation failed: ",
+  "deepseek-v4-flash（快速 · 不思考）": "deepseek-v4-flash (fast · no thinking)",
+  "deepseek-v4-flash（思考）": "deepseek-v4-flash (thinking)",
+  "deepseek-v4-pro（思考 · 最强）": "deepseek-v4-pro (thinking · strongest)",
+  "（共 ": " (total ",
+  "推荐": "Recommendation",
+  "（应用）": " (apply)",
+  "已应用推荐组合（": "Applied recommendation (",
+  " 门）。": " course(s)).",
+  "推荐里的课程代码无法匹配，请手动选择。": "Recommendation course codes don't match; select manually.",
+  "DeepSeek 没有返回可解析的组合，请直接看上面的回答手动选择。": "DeepSeek didn't return parseable combinations; pick manually from the answer above.",
+  "没有可用的推荐组合。": "No usable recommendations.",
+  "请先在日历上固定至少 1 门已决定的课，并保留至少 1 门可调整的课。": "Pin at least 1 decided course on the calendar and keep at least 1 course adjustable.",
+  "固定课程之间已经冲突，没有可行空间。请先解除部分固定。": "Pinned courses conflict; no feasible space. Unpin some first.",
+  "先在向导里决定至少一门课，再让 DeepSeek 分析。": "Decide at least one course in the wizard first, then ask DeepSeek.",
+  "课程": "Course",
+  "人）": " ratings)",
+  "人": " enrolled",
+  "分": " min",
+};
+const I18N_PHRASES = Object.entries(I18N_EN).sort((a, b) => b[0].length - a[0].length);
+let translateBusy = false;
+let translateTimer = null;
+
+function t(s) {
+  if (UI_LANG !== "en" || !s) return s;
+  return translateText(s);
+}
+
+function translateText(s) {
+  if (UI_LANG !== "en" || !s) return s;
+  let out = s;
+  out = out.replace(/周一至周五/g, "Mon–Fri");
+  out = out.replace(/周([一二三四五]+)/g, (m, d) => Array.from(d).map(c => EN_DAYS[c]).join("/"));
+  for (const [zh, en] of I18N_PHRASES) out = out.split(zh).join(en);
+  out = out.replace(/（/g, " (").replace(/）/g, ")")
+           .replace(/：/g, ": ").replace(/；/g, "; ")
+           .replace(/，/g, ", ").replace(/、/g, ", ")
+           .replace(/。/g, ". ").replace(/？/g, "?").replace(/！/g, "!")
+           .replace(/…/g, "...");
+  return out;
+}
+
+function translateDom(root) {
+  if (UI_LANG !== "en" || translateBusy) return;
+  translateBusy = true;
+  try {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(n) {
+        const p = n.parentElement;
+        if (!p || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        if (p.closest(".chat-msg, #dsAnswer, #dsThinking")) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const n of nodes) {
+      const nt = translateText(n.nodeValue);
+      if (nt !== n.nodeValue) n.nodeValue = nt;
+    }
+    root.querySelectorAll("[placeholder]").forEach(el => {
+      if (el.closest(".chat-msg, #dsAnswer, #dsThinking")) return;
+      const v = translateText(el.getAttribute("placeholder"));
+      if (v) el.setAttribute("placeholder", v);
+    });
+    root.querySelectorAll("[title]").forEach(el => {
+      const v = translateText(el.getAttribute("title"));
+      if (v) el.setAttribute("title", v);
+    });
+  } finally {
+    translateBusy = false;
+  }
+}
+
+const translateObserver = new MutationObserver(() => {
+  clearTimeout(translateTimer);
+  translateTimer = setTimeout(() => translateDom(document.body), 80);
+});
+translateObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+document.documentElement.lang = UI_LANG === "en" ? "en" : "zh-CN";
+if (UI_LANG === "en") document.title = "UCSD Schedule Helper";
+$("langSel").value = UI_LANG;
+$("langSel").addEventListener("change", () => {
+  localStorage.setItem("uiLang", $("langSel").value);
+  location.reload();
+});
+
+const UI_THEME = localStorage.getItem("uiTheme") || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+document.body.classList.toggle("theme-dark", UI_THEME === "dark");
+document.documentElement.style.colorScheme = UI_THEME;
+
+function updateThemeBtnTitle() {
+  const el = $("themeBtn");
+  if (el) el.title = t(document.body.classList.contains("theme-dark") ? "切换到白天模式" : "切换到黑夜模式");
+}
+
+$("themeBtn").addEventListener("click", () => {
+  const dark = document.body.classList.toggle("theme-dark");
+  localStorage.setItem("uiTheme", dark ? "dark" : "light");
+  document.documentElement.style.colorScheme = dark ? "dark" : "light";
+  updateThemeBtnTitle();
+});
+updateThemeBtnTitle();
+
+async function api(path, options = {}) {
+  const resp = await fetch(path, options);
+  let data = {};
+  try { data = await resp.json(); } catch (e) {}
+  if (!resp.ok) throw new Error(data.error || (t("请求失败 ") + resp.status));
+  return data;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// 轻量 Markdown 渲染（加粗、斜体、标题、列表、行内代码、代码块）
+function renderMarkdown(text) {
+  if (!text) return "";
+  let t = escapeHtml(text);
+  const blocks = [];
+  t = t.replace(/```([\s\S]*?)```/g, (m, code) => {
+    blocks.push('<pre class="md-code"><code>' + code.trim() + "</code></pre>");
+    return "\u0000B" + (blocks.length - 1) + "\u0000";
+  });
+  const heads = [];
+  t = t.replace(/^### (.*)$/gm, (m, x) => { heads.push("<h4>" + x + "</h4>"); return "\u0000H" + (heads.length - 1) + "\u0000"; });
+  t = t.replace(/^## (.*)$/gm, (m, x) => { heads.push("<h3>" + x + "</h3>"); return "\u0000H" + (heads.length - 1) + "\u0000"; });
+  t = t.replace(/^# (.*)$/gm, (m, x) => { heads.push("<h2>" + x + "</h2>"); return "\u0000H" + (heads.length - 1) + "\u0000"; });
+  t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+  t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  t = t.replace(/(^|[^*\w])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+
+  const lines = t.split("\n");
+  let html = "";
+  let para = [];
+  let listType = null;
+  const flushPara = () => {
+    if (para.length) {
+      html += "<p>" + para.join("<br>") + "</p>";
+      para = [];
+    }
+  };
+  const closeList = () => {
+    if (listType) { html += listType === "ul" ? "</ul>" : "</ol>"; listType = null; }
+  };
+  for (const line of lines) {
+    const lm = line.match(/^\s*([-*]|\d+[.)])\s+(.*)$/);
+    if (lm) {
+      flushPara();
+      const type = /^\d/.test(lm[1]) ? "ol" : "ul";
+      if (listType !== type) { closeList(); html += type === "ul" ? "<ul>" : "<ol>"; listType = type; }
+      html += "<li>" + lm[2] + "</li>";
+      continue;
+    }
+    closeList();
+    const ph = line.trim().match(/^\u0000([BH])(\d+)\u0000$/);
+    if (ph) {
+      flushPara();
+      html += ph[1] === "B" ? blocks[parseInt(ph[2])] : heads[parseInt(ph[2])];
+      continue;
+    }
+    if (!line.trim()) { flushPara(); continue; }
+    para.push(line);
+  }
+  closeList();
+  flushPara();
+  html = html.replace(/<p>\u0000([BH])(\d+)\u0000<\/p>/g, (m, k, n) => k === "B" ? blocks[parseInt(n)] : heads[parseInt(n)]);
+  return html;
+}
+
+async function streamDeepSeek(payload, onProgress, targets) {
+  const resp = await fetch("/api/deepseek/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) {
+    let msg = "请求失败 " + resp.status;
+    try { const d = await resp.json(); if (d.error) msg = d.error; } catch (e) {}
+    throw new Error(msg);
+  }
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let thinking = "";
+  let content = "";
+  const thinkEl = (targets && targets.thinkEl) || $("dsThinking");
+  const ansEl = (targets && targets.ansEl) || $("dsAnswer");
+  if (thinkEl && !(targets && targets.keepThink)) { thinkEl.style.display = "none"; thinkEl.textContent = ""; }
+  if (ansEl) { ansEl.textContent = ""; }
+  let finished = false;
+  while (!finished) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, idx).trim();
+      buffer = buffer.slice(idx + 1);
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (data === "[DONE]") { finished = true; break; }
+      try {
+        const j = JSON.parse(data);
+        if (j.error) throw new Error(j.error);
+        const delta = (j.choices && j.choices[0] && j.choices[0].delta) || {};
+        if (delta.reasoning_content) {
+          thinking += delta.reasoning_content;
+          if (thinkEl) {
+            thinkEl.style.display = "block";
+            thinkEl.textContent = (targets && targets.thinkLabel || "") + thinking;
+            thinkEl.scrollTop = thinkEl.scrollHeight;
+          }
+        }
+        if (delta.content) {
+          content += delta.content;
+          if (ansEl) {
+            ansEl.innerHTML = renderMarkdown(content);
+            ansEl.scrollTop = ansEl.scrollHeight;
+          }
+        }
+      } catch (err) {
+        if (err instanceof SyntaxError) continue;
+        throw err;
+      }
+    }
+    if (onProgress) onProgress(thinking, content);
+  }
+  return { thinking, content };
+}
+
+function setStatus(msg) { $("status").textContent = msg || ""; }
+
+// ---------- 本地保存：课程状态 + 对话记录（写入 saved_data.json） ----------
+async function saveAppState() {
+  try {
+    await api("/api/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        state: {
+          term: state.term,
+          courses: state.courses,
+          locks: state.locks,
+          pins: state.pins,
+          collapsed: state.collapsed,
+          options: state.options,
+          wizard: {
+            decided: JSON.parse(JSON.stringify(state.wizard.decided || {})),
+            current: state.wizard.current,
+            pinned: [...(state.wizard.pinned || [])],
+          },
+          current_schedule: state.schedules[state.selected]
+            ? JSON.parse(JSON.stringify(state.schedules[state.selected]))
+            : null,
+        },
+        combos: state.combos,
+      }),
+    });
+  } catch (e) {}
+}
+
+function scheduleSaveState() {
+  clearTimeout(state.savedTimer);
+  state.savedTimer = setTimeout(saveAppState, 800);
+}
+
+async function restoreAppState() {
+  try {
+    const d = await api("/api/state");
+    const st = d.state || {};
+    if (st.courses && st.courses.length) {
+      state.term = st.term || state.term;
+      state.courses = st.courses;
+      state.locks = st.locks || {};
+      state.pins = st.pins || {};
+      state.collapsed = st.collapsed || {};
+      if (st.options) Object.assign(state.options, st.options);
+    }
+    if (st.wizard && st.wizard.decided) {
+      state.wizard.decided = JSON.parse(JSON.stringify(st.wizard.decided));
+      state.wizard.current = st.wizard.current || null;
+      state.wizard.pinned = st.wizard.pinned || [];
+    }
+    if (st.current_schedule) {
+      state.schedules = [JSON.parse(JSON.stringify(st.current_schedule))];
+      state.selected = 0;
+    }
+    state.combos = d.combos || [];
+    state.conversations = d.conversations || [];
+    $("termSel").value = state.term;
+    $("optOpen").checked = state.options.only_open;
+    $("optWalk").checked = state.options.use_walking;
+    renderCourseList();
+    renderConversations();
+    renderFavorites();
+    renderSchedules();
+    state.courses.forEach(loadRmpForCourse);
+    if (document.body.classList.contains("mode-wizard")) refreshWizardFeasibility();
+  } catch (e) {}
+}
+
+async function loadRmpForCourse(c) {
+  const names = (c.instructors || []).filter(n => n && !(n in state.rmp) && !pendingRmp.has(n));
+  if (!names.length) return;
+  names.forEach(n => pendingRmp.add(n));
+  await Promise.all(names.map(async (n) => {
+    try {
+      const d = await api("/api/rmp?name=" + encodeURIComponent(n));
+      state.rmp[n] = d.best || null;
+    } catch (e) {
+      state.rmp[n] = null;
+    }
+    pendingRmp.delete(n);
+  }));
+  renderCourseList();
+}
+
+function renderConversations() {
+  const box = $("convList");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!state.conversations.length) {
+    box.innerHTML = '<div class="muted">还没有保存的对话</div>';
+    if (!chatStreaming) renderChat();
+    return;
+  }
+  state.conversations.forEach((c) => {
+    const item = document.createElement("div");
+    item.className = "conv-item";
+    const time = c.created_at ? new Date(c.created_at).toLocaleString("zh-CN") : "";
+    item.innerHTML =
+      "<span>" + (c.title || "对话") + ' <span class="muted">' + time + "</span></span>" +
+      '<span><button class="ghost" data-view>查看</button> <button class="ghost" data-del>删除</button></span>';
+    item.querySelector("[data-view]").addEventListener("click", () => {
+      $("dsOut").style.display = "block";
+      $("dsThinking").style.display = "none";
+      $("dsAnswer").innerHTML = renderMarkdown(
+        "【标题】" + (c.title || "") +
+        "\n【模型】" + (c.model_label || "") +
+        "\n【目标】\n" + (c.goal || "") +
+        "\n\n【发送的方案摘要】\n" + (c.schedules_summary || "") +
+        "\n\n【DeepSeek 回答】\n" + (c.response || "")
+      );
+    });
+    item.querySelector("[data-del]").addEventListener("click", async () => {
+      await deleteConversation(c.id);
+    });
+    box.appendChild(item);
+  });
+  if (!chatStreaming) renderChat();
+}
+
+function renderChat() {
+  const chat = $("dsChat");
+  if (!chat) return;
+  chat.innerHTML = "";
+  if (!state.conversations.length) {
+    chat.style.display = "none";
+    return;
+  }
+  chat.style.display = "block";
+  [...state.conversations].reverse().forEach(c => {
+    const wrap = document.createElement("div");
+    wrap.className = "chat-entry";
+    const u = document.createElement("div");
+    u.className = "chat-msg chat-user";
+    u.textContent = c.goal || "（无问题）";
+    const a = document.createElement("div");
+    a.className = "chat-msg chat-ai";
+    a.innerHTML = renderMarkdown(c.response || "");
+    wrap.appendChild(u);
+    wrap.appendChild(a);
+    chat.appendChild(wrap);
+  });
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function saveConversation(conv) {
+  try {
+    await api("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation: conv }),
+    });
+    state.conversations = [conv].concat(state.conversations.filter(c => c.id !== conv.id)).slice(0, 50);
+    renderConversations();
+  } catch (e) {}
+}
+
+async function deleteConversation(id) {
+  try {
+    await api("/api/conversations?id=" + encodeURIComponent(id), { method: "DELETE" });
+    state.conversations = state.conversations.filter(c => c.id !== id);
+    renderConversations();
+  } catch (e) {}
+}
+
+// ---------- 选课组合 ----------
+function renderFavorites() {
+  const box = $("favList");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!state.combos.length) {
+    box.innerHTML = '<div class="muted">还没有收藏：保存当前界面会记住课程、向导进度和当前课表。</div>';
+    return;
+  }
+  state.combos.forEach(c => {
+    const item = document.createElement("div");
+    item.className = "conv-item";
+    const time = c.created_at ? new Date(c.created_at).toLocaleString("zh-CN") : "";
+    item.innerHTML = '<span><span class="badge">组合</span> ' + escapeHtml(c.name || "组合") + ' <span class="muted">' + time + "</span></span>" +
+      '<span><button class="ghost" data-load>加载</button> <button class="ghost" data-del>删除</button></span>';
+    item.querySelector("[data-load]").addEventListener("click", () => loadComboById(c.id));
+    item.querySelector("[data-del]").addEventListener("click", () => deleteComboById(c.id));
+    box.appendChild(item);
+  });
+}
+
+function saveCombo() {
+  const name = prompt(t("给这个选课组合起个名字："), t("组合 ") + (state.combos.length + 1));
+  if (!name) return;
+  const combo = {
+    id: "cb" + Date.now(),
+    name: name,
+    created_at: new Date().toISOString(),
+    state: {
+      term: state.term,
+      courses: JSON.parse(JSON.stringify(state.courses)),
+      locks: { ...state.locks },
+      pins: { ...state.pins },
+      options: { ...state.options },
+      wizard: {
+        decided: JSON.parse(JSON.stringify(state.wizard.decided || {})),
+        current: state.wizard.current,
+        pinned: [...(state.wizard.pinned || [])],
+      },
+      current_schedule: state.schedules[state.selected]
+        ? JSON.parse(JSON.stringify(state.schedules[state.selected]))
+        : null,
+    },
+  };
+  state.combos = [combo].concat(state.combos.filter(c => c.id !== combo.id)).slice(0, 30);
+  scheduleSaveState();
+  renderFavorites();
+}
+
+function loadComboById(id) {
+  const combo = state.combos.find(c => c.id === id);
+  if (!combo) return;
+  const st = JSON.parse(JSON.stringify(combo.state || {}));
+  state.term = st.term || state.term;
+  state.courses = st.courses || [];
+  state.locks = st.locks || {};
+  state.pins = st.pins || {};
+  if (st.options) Object.assign(state.options, st.options);
+  if (st.wizard && st.wizard.decided) {
+    state.wizard.decided = st.wizard.decided || {};
+    state.wizard.current = st.wizard.current || null;
+    state.wizard.pinned = st.wizard.pinned || [];
+  } else {
+    resetWizard();
+  }
+  state.wizard.loading = false;
+  state.wizard.feasibility = null;
+  state.wizard.conflictInfo = null;
+  if (st.current_schedule) {
+    state.schedules = [st.current_schedule];
+    state.selected = 0;
+  } else {
+    state.schedules = [];
+  }
+  $("termSel").value = state.term;
+  $("optOpen").checked = state.options.only_open;
+  $("optWalk").checked = state.options.use_walking;
+  renderCourseList();
+  renderSchedules();
+  scheduleSaveState();
+  state.courses.forEach(loadRmpForCourse);
+  renderWizard();
+  if (document.body.classList.contains("mode-wizard")) refreshWizardFeasibility();
+}
+
+function deleteComboById(id) {
+  if (!confirm(t("确定删除这个组合？"))) return;
+  state.combos = state.combos.filter(c => c.id !== id);
+  scheduleSaveState();
+  renderFavorites();
+}
+
+let termUpdatedMap = {};      // 学期 -> Class Planner 完整刷新时间（UTC ISO）
+
+function renderTermUpdated() {
+  const el = $("termUpdated");
+  if (!el) return;
+  const iso = termUpdatedMap[state.term];
+  if (!iso) { el.textContent = ""; el.title = ""; return; }
+  const dt = new Date(iso);
+  if (isNaN(dt.getTime())) { el.textContent = ""; el.title = ""; return; }
+  const diff = Math.max(0, Date.now() - dt.getTime());
+  const min = Math.floor(diff / 60000);
+  let rel;
+  if (min < 1) rel = t("刚刚");
+  else if (min < 60) rel = min + t(" 分钟前");
+  else if (min < 1440) rel = Math.floor(min / 60) + t(" 小时前");
+  else rel = Math.floor(min / 1440) + t(" 天前");
+  el.textContent = t("数据更新于 ") + rel;
+  el.title = dt.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+async function loadTerms() {
+  try {
+    const d = await api("/api/terms");
+    termUpdatedMap = d.term_updated || {};
+    const sel = $("termSel");
+    sel.innerHTML = "";
+    for (const t of d.terms || []) {
+      const o = document.createElement("option");
+      o.value = t; o.textContent = t;
+      sel.appendChild(o);
+    }
+    if (!d.terms.includes(state.term) && d.terms.length) state.term = d.terms[0];
+    sel.value = state.term;
+    renderTermUpdated();
+  } catch (e) {
+    setStatus("加载学期失败: " + e.message);
+  }
+}
+
+let suggestTimer = null;
+$("courseInput").addEventListener("input", () => {
+  clearTimeout(suggestTimer);
+  const q = $("courseInput").value.trim();
+  if (q.length < 2) return;
+  suggestTimer = setTimeout(async () => {
+    try {
+      const d = await api("/api/courses?term=" + encodeURIComponent(state.term) + "&q=" + encodeURIComponent(q));
+      const dl = $("courseSuggest");
+      dl.innerHTML = "";
+      for (const c of d.courses || []) {
+        const o = document.createElement("option");
+        o.value = c.module_code;
+        o.label = c.module_name + "（" + c.subject_code + " " + c.course_code + "）";
+        dl.appendChild(o);
+      }
+    } catch (e) {}
+  }, 250);
+});
+
+$("termSel").addEventListener("change", () => {
+  state.term = $("termSel").value;
+  renderTermUpdated();
+  state.courses = [];
+  state.schedules = [];
+  resetWizard();
+  renderCourseList();
+  renderSchedules();
+  scheduleSaveState();
+});
+
+$("optOpen").addEventListener("change", () => { state.options.only_open = $("optOpen").checked; scheduleSaveState(); });
+$("optWalk").addEventListener("change", () => { state.options.use_walking = $("optWalk").checked; scheduleSaveState(); });
+
+async function addCourse() {
+  const code = normalizeCourseCode($("courseInput").value);
+  if (!code) return;
+  if (state.courses.some(c => c.module_code === code)) {
+    $("courseInput").value = "";
+    return;
+  }
+  try {
+    $("courseMsg").innerHTML = "";
+    const d = await api("/api/course", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ term: state.term, module_code: code }),
+    });
+    state.courses.push(d.course);
+    $("courseInput").value = "";
+    renderCourseList();
+    scheduleSaveState();
+    loadRmpForCourse(d.course);
+    renderWizard();
+    if (document.body.classList.contains("mode-wizard")) refreshWizardFeasibility();
+  } catch (e) {
+    $("courseMsg").innerHTML = '<div class="err">' + e.message + "</div>";
+  }
+}
+
+$("addBtn").addEventListener("click", addCourse);
+$("courseInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addCourse(); });
+
+// 把 "MATH 100A" / "cse29" / "JAPN-020A" 统一成后端需要的 "MATH-100A" 格式
+function normalizeCourseCode(raw) {
+  let code = String(raw || "").trim().toUpperCase().replace(/\s+/g, "-");
+  code = code.replace(/^([A-Z]+)-(\d+)([A-Z]*)$/, (m, subj, num, suf) => subj + "-" + num.padStart(3, "0") + suf);
+  return code;
+}
+
+function fmtTime(m) {
+  if (!m || m.tba) return "时间待定";
+  return (m.start_display || "") + "-" + (m.end_display || "");
+}
+
+function typeAbbr(t) {
+  return TYPE_ABBR[(t || "").toLowerCase()] || (t || "").toUpperCase().slice(0, 2) || "";
+}
+
+function fmtDayGroup(days) {
+  const ordered = DAYS.filter(d => days.includes(d));
+  if (!ordered.length) return "";
+  if (ordered.join("") === "MTWRF") return "周一至周五";
+  return "周" + ordered.map(d => "一二三四五"[DAYS.indexOf(d)]).join("");
+}
+
+function fmtDateShort(d) {
+  return String(d || "").slice(5).replace("-", "/");
+}
+
+function fmtDays(meetings, withRoom) {
+  const cls = meetings.filter(m => m.kind !== "final" && !m.tba && !m.date);
+  const oneOffs = meetings.filter(m => m.kind !== "final" && !m.tba && m.date);
+  if (!cls.length && !oneOffs.length) return "时间待定";
+  const groups = {};
+  for (const m of cls) {
+    const key = (m.start_display || "?") + "-" + (m.end_display || "?");
+    (groups[key] = groups[key] || []).push(m);
+  }
+  const groupList = Object.values(groups);
+  groupList.sort((a, b) => {
+    const ia = Math.min(...a.map(x => DAYS.indexOf(x.day) >= 0 ? DAYS.indexOf(x.day) : 99));
+    const ib = Math.min(...b.map(x => DAYS.indexOf(x.day) >= 0 ? DAYS.indexOf(x.day) : 99));
+    return ia - ib;
+  });
+  const parts = groupList.map(g => {
+    const room = withRoom && g[0].room ? " " + g[0].room : "";
+    return fmtDayGroup(g.map(x => x.day)) + " " + (g[0].start_display || "?") + "-" + (g[0].end_display || "?") + room;
+  });
+  oneOffs.forEach(m => {
+    const room = withRoom && m.room ? " " + m.room : "";
+    parts.push("考试 " + fmtDateShort(m.date) + " " + (m.start_display || "?") + "-" + (m.end_display || "?") + room);
+  });
+  return parts.join("；");
+}
+
+function renderCourseList() {
+  updateExportButtons();
+  const box = $("courseList");
+  box.innerHTML = "";
+  if (!state.courses.length) {
+    box.innerHTML = '<div class="muted">还没有添加课程</div>';
+    return;
+  }
+  state.courses.forEach((c, ci) => {
+    const card = document.createElement("div");
+    card.className = "course-card";
+    const color = PALETTE[ci % PALETTE.length];
+    const isCollapsed = state.collapsed[c.module_code] !== false;
+    const isWizardMode = document.body.classList.contains("mode-wizard");
+    const fams = Object.keys(c.family_combos || {}).sort((a, b) => parseInt(a) - parseInt(b));
+    const pinOptions = ['<option value="">不限</option>'].concat(fams.map(f => {
+      const sel = state.pins[c.module_code] === f ? " selected" : "";
+      return '<option value="' + f + '"' + sel + ">分组 " + f + "</option>";
+    })).join("");
+    const lockOptions = ['<option value="">不限老师（所有分班）</option>']
+      .concat((c.instructors || []).map(n => {
+        const sel = state.locks[c.module_code] === n ? " selected" : "";
+        return '<option value="' + n.replace(/"/g, "&quot;") + '"' + sel + ">" + n + "</option>";
+      })).join("");
+    const pinLockHtml = isWizardMode
+      ? ""
+      : '<span class="lock-inline">固定分班：<select data-action="pin">' + pinOptions + "</select></span>" +
+        '<span class="lock-inline">锁定：<select data-action="lock">' + lockOptions + "</select></span>";
+
+    let rows = "";
+    for (const s of c.sections || []) {
+      const seats = s.seats_available != null ? s.seats_available + "/" + (s.capacity ?? "?") : "?";
+      const dayTime = fmtDays(s.meetings);
+      const instrCells = (s.instructors || []).map(n => {
+        const score = state.rmp[n];
+        const sc = score && score.avgRating
+          ? '<span class="rmp-score">RMP ' + score.avgRating + " · " + score.numRatings + "人 · " + score.wouldTakeAgainPercent + "%愿再上 · 难度" + score.avgDifficulty + "</span>"
+          : "";
+        return "<span>" + n + sc + "</span>";
+      }).join("<br>") || "待定";
+      const typeCell = s.type === "lecture" ? "<b>" + typeAbbr(s.type) + "</b>" : typeAbbr(s.type);
+      rows += "<tr><td>" + s.section_code + "</td><td>" + typeCell + "</td><td>" + dayTime +
+        "</td><td>" + (s.meetings.filter(m => m.kind !== "final").map(m => m.room || m.building || "?").filter((v,i,a) => a.indexOf(v) === i).join(", ") || "?") +
+        "</td><td>" + instrCells + "</td><td>" + seats + "</td></tr>";
+    }
+
+    card.innerHTML =
+      '<div class="course-head">' +
+        '<button type="button" class="caret-btn' + (isCollapsed ? "" : " open") + '" data-action="toggle" title="展开/折叠分班">▸</button>' +
+        '<span class="dot" style="background:' + color + '"></span>' +
+        '<b>' + c.module_code + " " + c.module_name + '</b>' +
+        '<span class="units">' + c.units + " 学分</span>" +
+        pinLockHtml +
+        '<button type="button" class="danger ghost" data-action="remove">移除</button>' +
+      "</div>" +
+      '<div class="sec-body"' + (isCollapsed ? " hidden" : "") + ">" +
+        '<table class="sec-table"><tr><th>分班</th><th>类型</th><th>时间</th><th>教室</th><th>老师</th><th>空位</th></tr>' + rows + "</table>" +
+      "</div>";
+
+    card.querySelector('[data-action="toggle"]').addEventListener("click", () => {
+      state.collapsed[c.module_code] = isCollapsed ? false : true;
+      renderCourseList();
+      scheduleSaveState();
+    });
+    const lockSel = card.querySelector('[data-action="lock"]');
+    if (lockSel) lockSel.addEventListener("change", (e) => {
+      state.locks[c.module_code] = e.target.value;
+      scheduleSaveState();
+    });
+    const pinSel = card.querySelector('[data-action="pin"]');
+    if (pinSel) pinSel.addEventListener("change", (e) => {
+      if (e.target.value) state.pins[c.module_code] = e.target.value;
+      else delete state.pins[c.module_code];
+      scheduleSaveState();
+      renderCourseList();
+    });
+    card.querySelector('[data-action="remove"]').addEventListener("click", () => {
+      state.courses.splice(ci, 1);
+      delete state.locks[c.module_code];
+      delete state.collapsed[c.module_code];
+      state.schedules = [];
+      renderCourseList();
+      renderSchedules();
+      scheduleSaveState();
+      delete state.wizard.decided[c.module_code];
+      if (state.wizard.current === c.module_code) state.wizard.current = null;
+      renderWizard();
+      if (document.body.classList.contains("mode-wizard")) refreshWizardFeasibility();
+    });
+    box.appendChild(card);
+  });
+}
+
+async function generate() {
+  const btn = $("genBtn");
+  btn.disabled = true;
+  btn.textContent = "正在生成…";
+  $("genMsg").innerHTML = "";
+  $("genProgress").style.display = "block";
+  setProgress(0, "正在准备…");
+  try {
+    const d = await api("/api/schedules", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        term: state.term,
+        modules: state.courses.map(c => c.module_code),
+        locks: state.locks,
+        pins: state.pins,
+        options: state.options,
+      }),
+    });
+    const jobId = d.job_id;
+    let finished = false;
+    while (!finished) {
+      await sleep(400);
+      const p = await api("/api/progress?job=" + encodeURIComponent(jobId));
+      const prog = p.progress || {};
+      updateProgressUI(prog);
+      if (prog.status === "error") throw new Error(prog.error || "生成失败");
+      if (prog.status === "done") {
+        const r = await api("/api/schedules/result?job=" + encodeURIComponent(jobId));
+        state.schedules = r.schedules || [];
+        state.selected = 0;
+        renderSchedules();
+        finished = true;
+      }
+    }
+    $("genProgress").style.display = "none";
+    if (state.schedules.length) {
+      $("genMsg").innerHTML = '<div class="ok">共找到 ' + state.schedules.length + " 个不冲突的组合（已按学分、步行时间排序）</div>";
+    } else {
+      $("genMsg").innerHTML = '<div class="err">没有找到可行组合，试试放宽锁定老师或去掉“只看空位”</div>';
+    }
+  } catch (e) {
+    $("genProgress").style.display = "none";
+    $("genMsg").innerHTML = '<div class="err">' + e.message + "</div>";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "生成全部可行课表";
+  }
+}
+
+function setProgress(pct, text) {
+  const bar = $("genProgressBar");
+  const txt = $("genProgressText");
+  if (bar) bar.style.width = Math.min(Math.max(pct, 0), 100) + "%";
+  if (txt) txt.textContent = text;
+}
+
+function updateProgressUI(prog) {
+  if (prog.phase === "enumerate") {
+    const pct = prog.total_combos ? Math.round(prog.checked / prog.total_combos * 100) : 0;
+    setProgress(pct, "正在枚举组合：已检查 " + prog.checked + "/" + prog.total_combos + "，已找到 " + prog.found + " 个可行方案");
+  } else if (prog.phase === "metrics") {
+    const pct = prog.metrics_total ? Math.round(prog.metrics_done / prog.metrics_total * 100) : 50;
+    setProgress(pct, "正在计算步行时间：" + prog.metrics_done + "/" + prog.metrics_total + "（共 " + prog.found + " 个方案）");
+  } else if (prog.phase === "serialize") {
+    setProgress(100, "正在打包数据…");
+  } else {
+    setProgress(0, "正在准备…");
+  }
+}
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+function initSplitter() {
+  const mainEl = document.querySelector("main");
+  const splitter = $("splitter");
+  if (!mainEl || !splitter) return;
+  let curW = parseInt(localStorage.getItem("leftWidth") || "0");
+  if (curW) {
+    mainEl.style.setProperty("--left-w", curW + "px");
+  } else {
+    curW = 380;
+  }
+  let dragging = false;
+  let startX = 0;
+  let startW = 0;
+  splitter.addEventListener("mousedown", (e) => {
+    dragging = true;
+    startX = e.clientX;
+    startW = curW;
+    splitter.classList.add("active");
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    e.preventDefault();
+  });
+  document.addEventListener("mousemove", (e) => {
+    if (!dragging) return;
+    const maxW = Math.max(260, Math.min(760, window.innerWidth * 0.6));
+    curW = Math.min(Math.max(startW + (e.clientX - startX), 260), maxW);
+    mainEl.style.setProperty("--left-w", curW + "px");
+  });
+  document.addEventListener("mouseup", () => {
+    if (!dragging) return;
+    dragging = false;
+    splitter.classList.remove("active");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    localStorage.setItem("leftWidth", String(curW));
+  });
+}
+
+$("genBtn").addEventListener("click", generate);
+$("favSaveCombo").addEventListener("click", saveCombo);
+
+async function refreshCourseData() {
+  if (!state.courses.length) return;
+  const btn = $("refreshData");
+  if (btn) { btn.disabled = true; btn.textContent = "刷新中…"; }
+  try {
+    await api("/api/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const modules = state.courses.map(c => c.module_code);
+    const fresh = [];
+    for (const m of modules) {
+      const d = await api("/api/course", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ term: state.term, module_code: m }),
+      });
+      fresh.push(d.course);
+    }
+    state.courses = fresh;
+    state.wizard.feasibility = null;
+    state.schedules = [];
+    renderCourseList();
+    renderSchedules();
+    renderWizard();
+    scheduleSaveState();
+    state.courses.forEach(loadRmpForCourse);
+    if (document.body.classList.contains("mode-wizard")) refreshWizardFeasibility();
+    setStatus("课程数据已刷新（座位数以 TSS 为准）");
+    $("genMsg").innerHTML = '<div class="ok">课程数据已刷新（座位数以 TSS 为准）</div>';
+  } catch (e) {
+    $("genMsg").innerHTML = '<div class="err">刷新失败：' + escapeHtml(e.message) + "</div>";
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "刷新课程数据"; }
+  }
+}
+
+$("refreshData").addEventListener("click", refreshCourseData);
+
+async function askDeepSeek() {
+  const key = $("dsKey").value.trim();
+  const q = $("dsPrompt").value.trim();
+  if (!key) {
+    $("dsMsg").innerHTML = '<div class="err">请先填写 DeepSeek API Key</div>';
+    return;
+  }
+  if (!q) {
+    $("dsMsg").innerHTML = '<div class="err">先输入你的问题</div>';
+    return;
+  }
+  const btn = $("dsAskBtn");
+  btn.disabled = true;
+  btn.textContent = "发送中…";
+  $("dsMsg").innerHTML = "";
+  const chat = $("dsChat");
+  chat.style.display = "block";
+  const convId = "c" + Date.now();
+  const u = document.createElement("div");
+  u.className = "chat-msg chat-user";
+  u.textContent = q;
+  chat.appendChild(u);
+  const ai = document.createElement("div");
+  ai.className = "chat-msg chat-ai";
+  const thinkBox = document.createElement("div");
+  thinkBox.className = "ds-thinking-inline";
+  thinkBox.style.display = "none";
+  const bodyDiv = document.createElement("div");
+  ai.appendChild(thinkBox);
+  ai.appendChild(bodyDiv);
+  chat.appendChild(ai);
+  chat.scrollTop = chat.scrollHeight;
+  const contextText = buildFullCourseContext();
+  const modelMap = {
+    "flash-fast": { model: "deepseek-v4-flash", thinking: false, effort: null },
+    "flash-think": { model: "deepseek-v4-flash", thinking: true, effort: "high" },
+    "pro-think": { model: "deepseek-v4-pro", thinking: true, effort: "high" },
+  };
+  const mc = modelMap[$("dsModel").value] || modelMap["flash-fast"];
+  thinkBox.textContent = mc.thinking ? "💭 正在思考…" : "⏳ 正在生成回答…";
+  thinkBox.style.display = "block";
+  const messages = [
+    {
+      role: "system",
+      content: "你是 UCSD 选课顾问。用户会提供当前已添加课程和部分已定选择，然后提问。请结合课业负荷、老师口碑、通勤、期末考试等给出务实建议。只基于提供的信息，不要编造数据。",
+    },
+    {
+      role: "user",
+      content: "给 DeepSeek 的话：\n" + q +
+        "\n\n当前课程和全部可选分班信息：\n" + (contextText || "（暂无）"),
+    },
+  ];
+  chatStreaming = true;
+  const convBase = {
+    id: convId,
+    title: "问答 " + new Date().toLocaleString("zh-CN"),
+    created_at: new Date().toISOString(),
+    model_label: $("dsModel").selectedOptions.length ? $("dsModel").selectedOptions[0].textContent : "",
+    goal: q,
+    schedules_summary: contextText,
+    response: "",
+  };
+  let accThinking = "";
+  let accContent = "";
+  let lastSave = 0;
+  const savePartial = async () => {
+    const now = Date.now();
+    if (now - lastSave < 2000) return;
+    lastSave = now;
+    if (!accContent && !accThinking) return;
+    convBase.response = accContent;
+    await saveConversation({ ...convBase });
+  };
+  const onProgress = (t, c) => {
+    accThinking = t;
+    accContent = c;
+    if (c && !t && thinkBox.style.display !== "none") thinkBox.style.display = "none";
+    if (c) btn.textContent = "生成回答中…";
+    else if (t) btn.textContent = "思考中…";
+    const chatEl = $("dsChat");
+    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+    savePartial();
+  };
+  try {
+    const streamed = await streamDeepSeek({
+      api_key: key,
+      model: mc.model,
+      thinking: mc.thinking,
+      reasoning_effort: mc.effort,
+      messages,
+    }, onProgress, { thinkEl: thinkBox, ansEl: bodyDiv, keepThink: true, thinkLabel: "💭 思考过程\n" });
+    accThinking = streamed.thinking;
+    accContent = streamed.content;
+    if (accThinking) {
+      thinkBox.textContent = "💭 思考过程\n" + accThinking;
+      thinkBox.style.display = "block";
+    } else {
+      thinkBox.style.display = "none";
+    }
+    convBase.response = accContent;
+    await saveConversation({ ...convBase });
+  } catch (e) {
+    if (accThinking || accContent) {
+      convBase.response = accContent;
+      await saveConversation({ ...convBase });
+    }
+    $("dsMsg").innerHTML = '<div class="err">' + escapeHtml(e.message) + "</div>";
+  } finally {
+    chatStreaming = false;
+    btn.disabled = false;
+    btn.textContent = "发送问题";
+    try { renderChat(); } catch (e) {}
+  }
+}
+
+$("dsAskBtn").addEventListener("click", askDeepSeek);
+
+function fmtMin(min) {
+  return String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0");
+}
+
+function renderSchedules() {
+  const box = $("scheduleBtns");
+  updateExportButtons();
+  box.innerHTML = "";
+  if (!state.schedules.length) {
+    box.innerHTML = '<span class="muted">生成后这里会列出所有不冲突的组合</span>';
+    $("calendar").innerHTML = "";
+    $("details").innerHTML = "";
+    return;
+  }
+  const s = state.schedules[state.selected];
+  const walk = s.walking_total != null ? " · 步行 " + s.walking_total + " 分钟" : "";
+  const compareBar = state.compare.length
+    ? '<div class="row" style="margin-top:8px">' +
+        state.compare.map(i => '<span class="badge">方案' + (i + 1) + ' <button class="ghost" data-crm="' + i + '">×</button></span>').join(" ") +
+        '<button id="compareGo" class="ghost">开始对比</button>' +
+        '<button id="compareClear" class="ghost">清除</button>' +
+      "</div>"
+    : "";
+  box.innerHTML =
+    '<div class="row">' +
+      '<span class="muted">共 ' + state.schedules.length + " 个可行方案；当前显示第 " + (state.selected + 1) + " 个（" +
+        s.total_units + " 学分" + walk + "）</span>" +
+      '<label>查看方案 <input type="number" id="schedPick" min="1" max="' + state.schedules.length + '" value="' + (state.selected + 1) + '" style="width:80px"></label>' +
+      '<button id="schedViewBtn">查看</button>' +
+      '<button id="compareAdd" class="ghost">加入对比</button>' +
+    "</div>" + compareBar;
+  const pick = $("schedPick");
+  const view = () => {
+    const n = parseInt(pick.value) || 1;
+    state.selected = Math.min(Math.max(n - 1, 0), state.schedules.length - 1);
+    renderSchedules();
+  };
+  $("schedViewBtn").addEventListener("click", view);
+  pick.addEventListener("keydown", (e) => { if (e.key === "Enter") view(); });
+  pick.addEventListener("change", view);
+  const addCmp = document.getElementById("compareAdd");
+  if (addCmp) addCmp.addEventListener("click", () => {
+    const i = state.selected;
+    if (state.compare.includes(i)) {
+      state.compare = state.compare.filter(x => x !== i);
+    } else {
+      if (state.compare.length >= 3) state.compare.shift();
+      state.compare.push(i);
+    }
+    renderSchedules();
+  });
+  box.querySelectorAll("[data-crm]").forEach(b => b.addEventListener("click", () => {
+    state.compare = state.compare.filter(x => x !== parseInt(b.dataset.crm));
+    renderSchedules();
+  }));
+  const go = document.getElementById("compareGo");
+  if (go) go.addEventListener("click", renderCompare);
+  const clear = document.getElementById("compareClear");
+  if (clear) clear.addEventListener("click", () => {
+    state.compare = [];
+    $("compareOut").innerHTML = "";
+    renderSchedules();
+  });
+  renderCalendar(s);
+  renderDetails(s);
+}
+
+function renderCompare() {
+  const out = $("compareOut");
+  const idxs = state.compare;
+  if (!out || !idxs.length) return;
+  const scheds = idxs.map(i => state.schedules[i]).filter(Boolean);
+  if (!scheds.length) return;
+  let html = "<h3 style='margin:0 0 8px;font-size:14px'>方案对比</h3>";
+  html += '<table class="sec-table"><tr><th></th>';
+  scheds.forEach((s, k) => { html += "<th>方案 " + (idxs[k] + 1) + "</th>"; });
+  html += "</tr>";
+  const rows = [
+    ["学分", s => s.total_units],
+    ["步行", s => s.walking_total != null ? s.walking_total + " 分钟" : "—"],
+    ["课程", s => {
+      const seen = [];
+      for (const c of s.courses || []) if (!seen.includes(c.module_code)) seen.push(c.module_code);
+      return seen.join("、");
+    }],
+  ];
+  for (const [label, fn] of rows) {
+    html += "<tr><td>" + label + "</td>";
+    scheds.forEach(s => { html += "<td>" + escapeHtml(String(fn(s))) + "</td>"; });
+    html += "</tr>";
+  }
+  html += "</table>";
+  scheds.forEach((s, k) => {
+    html += "<div style='margin-top:12px'><b>方案 " + (idxs[k] + 1) + "（" + s.total_units + "学分" +
+      (s.walking_total != null ? " · 步行" + s.walking_total + "分钟" : "") + "）</b></div>";
+    html += '<div class="cal-wrap" data-cal="' + k + '"></div>';
+  });
+  html += '<div class="row" style="margin-top:8px"><button id="compareClose" class="ghost">结束对比</button></div>';
+  out.innerHTML = html;
+  out.querySelectorAll("[data-cal]").forEach(el => {
+    const k = parseInt(el.dataset.cal);
+    renderCalendar(scheds[k], el);
+  });
+  out.querySelector("#compareClose").addEventListener("click", () => {
+    state.compare = [];
+    out.innerHTML = "";
+    renderSchedules();
+  });
+  out.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function minutesOf(m) {
+  if (!m || m.start == null) return null;
+  return m.start;
+}
+
+function currentDisplaySchedule() {
+  if (state.schedules[state.selected]) return state.schedules[state.selected];
+  return wizardPreviewSchedule(); // 预览也能导出
+}
+
+function calendarRange(s) {
+  const defStart = 7 * 60, defEnd = 22 * 60;
+  let lo = Infinity, hi = -Infinity;
+  ((s && s.courses) || []).forEach(c => {
+    (c.meetings || []).forEach(m => {
+      if (m.kind === "final" || m.tba || m.date || m.start == null || m.end == null) return;
+      if (m.start < lo) lo = m.start;
+      if (m.end > hi) hi = m.end;
+    });
+  });
+  if (!isFinite(lo)) return [defStart, defEnd];
+  lo = Math.max(6 * 60, Math.floor((lo - 60) / 30) * 30);
+  hi = Math.min(23 * 60, Math.ceil((hi + 60) / 30) * 30);
+  if (hi - lo < 6 * 60) {
+    const mid = (lo + hi) / 2;
+    lo = Math.max(6 * 60, Math.floor((mid - 3 * 60) / 30) * 30);
+    hi = Math.min(23 * 60, Math.ceil((mid + 3 * 60) / 30) * 30);
+  }
+  return [lo, hi];
+}
+
+function walkPill(mins) {
+  if (mins == null) return UI_LANG === "en" ? "walking…" : "走…";
+  return UI_LANG === "en" ? mins + " min" : "走 " + mins + "分";
+}
+
+function exportLabel(s) {
+  const n = state.selected + 1;
+  const walk = s.walking_total != null
+    ? (UI_LANG === "en" ? " · walk " + s.walking_total + " min" : " · 步行" + s.walking_total + "分钟")
+    : "";
+  return UI_LANG === "en"
+    ? "Schedule " + n + " (" + s.total_units + " credits" + walk + ")"
+    : "课表方案 " + n + "（" + s.total_units + "学分" + walk + "）";
+}
+
+function updateExportButtons() {
+  const s = currentDisplaySchedule();
+  const has = !!(s && (s.courses || []).length);
+  ["exportPng", "exportSvg", "exportPdf"].forEach(id => {
+    const el = $(id);
+    if (el) el.disabled = !has;
+  });
+}
+
+function scheduleToSVG(s, label) {
+  const [startMin, endMin] = calendarRange(s);
+  const rowH = 24, dayW = 170, leftW = 62, headerH = 64;
+  const rows = (endMin - startMin) / 30;
+  const width = leftW + DAYS.length * dayW;
+  const totalH = headerH + rows * rowH;
+  const courseIdx = {};
+  (s.courses || []).forEach(c => {
+    if (!(c.module_code in courseIdx)) courseIdx[c.module_code] = Object.keys(courseIdx).length;
+  });
+  let blocks = "";
+  (s.courses || []).forEach(c => {
+    const color = PALETTE[courseIdx[c.module_code] % PALETTE.length];
+    (c.meetings || []).forEach(m => {
+      if (m.kind === "final" || m.tba || m.start == null || m.end == null) return;
+      const di = DAYS.indexOf(m.day);
+      if (di < 0) return;
+      const x = leftW + di * dayW + 3;
+      const y = headerH + (m.start - startMin) / 30 * rowH + 2;
+      const h = Math.max((m.end - m.start) / 30 * rowH - 4, 14);
+      const seats = (c.capacity != null && c.seats_available != null)
+        ? " · " + (c.capacity - c.seats_available) + "/" + c.capacity + "人"
+        : "";
+      const lines = (c.module_code + " " + (c.section_code || "") + "\n" + (m.room || "") + seats).split("\n");
+      blocks += '<rect x="' + x + '" y="' + y + '" width="' + (dayW - 6) + '" height="' + h + '" rx="5" fill="' + color + '"/>';
+      lines.forEach((ln, li) => {
+        blocks += '<text x="' + (x + 6) + '" y="' + (y + 14 + li * 12) + '" font-size="11" fill="#fff" font-family="sans-serif">' + escapeHtml(ln) + "</text>";
+      });
+    });
+  });
+  let grid = "";
+  for (let r = 0; r < rows; r++) {
+    const y = headerH + r * rowH;
+    grid += '<line x1="' + leftW + '" y1="' + y + '" x2="' + width + '" y2="' + y + '" stroke="#e5e7eb" stroke-width="1"/>';
+    if (r % 2 === 0) {
+      const min = startMin + r * 30;
+      grid += '<text class="f-time" x="' + (leftW - 6) + '" y="' + (y + 13) + '" font-size="11" fill="#6b7280" text-anchor="end">' + fmtMin(min) + "</text>";
+    }
+  }
+  DAYS.forEach((d, di) => {
+    grid += '<line x1="' + (leftW + di * dayW) + '" y1="' + headerH + '" x2="' + (leftW + di * dayW) + '" y2="' + totalH + '" stroke="#e5e7eb" stroke-width="1"/>';
+    grid += '<text x="' + (leftW + di * dayW + dayW / 2) + '" y="' + (headerH - 14) + '" font-size="14" font-weight="bold" fill="#1f2937" text-anchor="middle">' + (UI_LANG === "en" ? EN_DAY_ABBR[d] : DAY_CN[d]) + "</text>";
+  });
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + totalH + '" viewBox="0 0 ' + width + " " + totalH + '">' +
+    '<rect width="' + width + '" height="' + totalH + '" fill="#ffffff"/>' +
+    '<rect width="' + width + '" height="' + headerH + '" fill="#f8fafc"/>' +
+    '<line x1="0" y1="' + headerH + '" x2="' + width + '" y2="' + headerH + '" stroke="#e5e7eb"/>' +
+    '<text x="' + (width / 2) + '" y="30" font-size="17" font-weight="bold" fill="#1f2937" text-anchor="middle">' + escapeHtml(label) + "</text>" +
+    grid + blocks + "</svg>";
+}
+
+function doExportSvg() {
+  const s = currentDisplaySchedule();
+  if (!s || !(s.courses || []).length) {
+    alert(t("还没有可导出的课表：先选课或生成课表"));
+    return;
+  }
+  const label = exportLabel(s);
+  const svg = scheduleToSVG(s, label);
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "ucsd-schedule.svg";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function doExportPng() {
+  const s = currentDisplaySchedule();
+  if (!s || !(s.courses || []).length) {
+    alert(t("还没有可导出的课表：先选课或生成课表"));
+    return;
+  }
+  const label = exportLabel(s);
+  const svg = scheduleToSVG(s, label);
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = "ucsd-schedule.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    alert(t("PNG 导出失败，请改用 SVG 或 PDF"));
+  };
+  img.src = url;
+}
+
+function doExportPdf() {
+  const s = currentDisplaySchedule();
+  if (!s || !(s.courses || []).length) {
+    alert(t("还没有可导出的课表：先选课或生成课表"));
+    return;
+  }
+  const pa = $("printArea");
+  pa.innerHTML = "";
+  const title = document.createElement("h2");
+  title.textContent = exportLabel(s);
+  pa.appendChild(title);
+  const cal = $("calendar").cloneNode(true);
+  cal.style.maxHeight = "none";
+  cal.style.overflow = "visible";
+  pa.appendChild(cal);
+  const det = $("details").cloneNode(true);
+  pa.appendChild(det);
+  window.print();
+}
+
+$("exportSvg").addEventListener("click", doExportSvg);
+$("exportPng").addEventListener("click", doExportPng);
+$("exportPdf").addEventListener("click", doExportPdf);
+
+function renderCalendar(s, targetEl) {
+  const cal = targetEl || $("calendar");
+  cal.innerHTML = "";
+  const [startMin, endMin] = calendarRange(s);
+  const step = 30;
+  const rows = (endMin - startMin) / step;
+  const rowH = 34;
+  const totalH = rows * rowH;
+
+  let grid = '<div class="cal-grid">';
+  grid += '<div class="cal-header"></div>';
+  DAYS.forEach(d => { grid += '<div class="cal-header">' + DAY_CN[d] + "</div>"; });
+  let axis = '<div class="cal-axis" style="height:' + totalH + 'px">';
+  for (let min = startMin; min < endMin; min += step) {
+    if (min % 60 === 0) {
+      const hh = String(Math.floor(min / 60)).padStart(2, "0");
+      const mm = String(min % 60).padStart(2, "0");
+      axis += '<div class="cal-time" style="top:' + ((min - startMin) / step * rowH) + 'px">' + hh + ":" + mm + "</div>";
+    }
+  }
+  axis += "</div>";
+  grid += axis;
+  DAYS.forEach(() => { grid += '<div class="cal-day" style="height:' + totalH + 'px"></div>'; });
+  grid += "</div>";
+  cal.innerHTML = grid;
+
+  const dayCols = Array.from(cal.querySelectorAll(".cal-day"));
+  const courseIdx = {};
+  s.courses.forEach(c => {
+    if (!(c.module_code in courseIdx)) courseIdx[c.module_code] = Object.keys(courseIdx).length;
+  });
+
+  for (const c of s.courses) {
+    const color = PALETTE[courseIdx[c.module_code] % PALETTE.length];
+    for (const m of c.meetings) {
+      if (m.tba || m.start == null || m.end == null) continue;
+      if (m.start < startMin || m.end > endMin) continue;
+      const di = DAYS.indexOf(m.day);
+      if (di < 0) continue;
+      const top = (m.start - startMin) / step * rowH;
+      const h = (m.end - m.start) / step * rowH;
+      const blk = document.createElement("div");
+      blk.className = "cal-block";
+      blk.style.top = top + "px";
+      blk.style.height = Math.max(h - 3, 18) + "px";
+      if (m.kind === "final") continue; // 期末考试统一显示在下方独立日期日历
+      if (m.date) continue; // 一次性期中考试只进详情卡片
+      blk.style.background = color;
+      blk.style.color = "#fff";
+      const seats = (c.capacity != null && c.seats_available != null)
+        ? " · " + (c.capacity - c.seats_available) + "/" + c.capacity + "人"
+        : "";
+      blk.innerHTML = "<b>" + c.module_code + "</b>" + (c.section_code || "") + " · " + (m.room || m.building || "?") + seats +
+        (c.instructors && c.instructors.length ? " · " + c.instructors[0] : "");
+      blk.title = c.module_code + " " + c.module_name + "\n" + c.section_code + "\n" +
+        (m.start_display || "") + "-" + (m.end_display || "") + "\n" + (m.room || "") + "\n老师: " + (c.instructors || []).join(", ");
+      dayCols[di].appendChild(blk);
+    }
+  }
+
+  // 课间步行提示（点击打开地图导航）
+  const dayMeetings = {};
+  for (const c of s.courses || []) {
+    for (const m of c.meetings) {
+      if (m.kind !== "final" && !m.tba && !m.date && m.day && m.start != null && m.end != null) {
+        (dayMeetings[m.day] = dayMeetings[m.day] || []).push({ m, c });
+      }
+    }
+  }
+  for (const d of DAYS) {
+    const list = (dayMeetings[d] || []).sort((a, b) => (a.m.start || 0) - (b.m.start || 0));
+    const det = (s.walking_detail || {})[d] || [];
+    for (let i = 0; i < list.length - 1; i++) {
+      const a = list[i], b = list[i + 1];
+      const gapTop = (a.m.end - startMin) / step * rowH;
+      const gapH = (b.m.start - a.m.end) / step * rowH;
+      const t = det[i];
+      const mins = t && t.minutes != null ? t.minutes : null;
+      const el = document.createElement("div");
+      el.className = "gap-pill" + (mins != null && mins > 10 ? " gap-far" : "");
+      el.style.top = (gapTop + gapH / 2 - 9) + "px";
+      el.textContent = walkPill(mins);
+      el.title = (a.m.room || a.m.building) + " → " + (b.m.room || b.m.building) +
+        (mins != null ? "，步行约 " + mins + " 分钟" : "");
+      dayCols[DAYS.indexOf(d)].appendChild(el);
+      if (mins == null) {
+        (async () => {
+          try {
+            const r = await api("/api/route", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ from: a.m.building || "", to: b.m.building || "" }),
+            });
+            const rr = r.result;
+            if (rr && rr.minutes != null) {
+              el.textContent = walkPill(rr.minutes);
+              if (rr.minutes > 10) el.classList.add("gap-far");
+              el.title = (a.m.room || a.m.building) + " → " + (b.m.room || b.m.building) +
+                "，步行约 " + rr.minutes + " 分钟";
+            } else {
+              el.textContent = walkPill(null);
+            }
+          } catch (e) {
+            el.textContent = walkPill(null);
+          }
+        })();
+      }
+    }
+  }
+}
+
+function parseDisplayTime(t) {
+  if (!t) return 0;
+  const m = String(t).match(/(\d+):(\d+)\s*(am|pm)/i);
+  if (!m) return 0;
+  let h = parseInt(m[1]) % 12;
+  if (/pm/i.test(m[3])) h += 12;
+  return h * 60 + parseInt(m[2]);
+}
+
+function finalsCalendarHtml(s) {
+  const finals = (s.finals || []).filter(f => f.date);
+  if (!finals.length) return '<div class="muted">没有期末考试信息</div>';
+  const dates = [...new Set(finals.map(f => f.date))].sort();
+  const colorMap = {};
+  (s.courses || []).forEach(c => {
+    if (!(c.module_code in colorMap)) colorMap[c.module_code] = PALETTE[Object.keys(colorMap).length % PALETTE.length];
+  });
+  const times = finals.map(f => [parseDisplayTime(f.start_display), parseDisplayTime(f.end_display)]);
+  const startMin = Math.floor(Math.min(...times.map(t => t[0])) / 30) * 30;
+  const endMin = Math.ceil(Math.max(...times.map(t => t[1])) / 30) * 30;
+  const step = 30, rowH = 26;
+  const rows = (endMin - startMin) / step;
+  const totalH = rows * rowH;
+  const leftW = 56, colW = 170;
+  const width = leftW + dates.length * colW;
+  let blocks = "";
+  finals.forEach(f => {
+    const di = dates.indexOf(f.date);
+    const st = parseDisplayTime(f.start_display), en = parseDisplayTime(f.end_display);
+    const x = leftW + di * colW + 3;
+    const y = 32 + (st - startMin) / step * rowH + 2;
+    const h = Math.max((en - st) / step * rowH - 4, 16);
+    const color = colorMap[f.course] || "#6b7280";
+    const label = (f.course || "") + "\n" + (f.start_display || "") + "-" + (f.end_display || "") + "\n" + (f.room || "");
+    blocks += '<rect x="' + x + '" y="' + y + '" width="' + (colW - 6) + '" height="' + h + '" rx="5" fill="' + color + '"/>';
+    label.split("\n").forEach((ln, li) => {
+      blocks += '<text x="' + (x + 6) + '" y="' + (y + 14 + li * 12) + '" font-size="11" fill="#fff">' + escapeHtml(ln) + "</text>";
+    });
+  });
+  let grid = "";
+  for (let r = 0; r < rows; r++) {
+    const y = 32 + r * rowH;
+    grid += '<line class="f-line" x1="' + leftW + '" y1="' + y + '" x2="' + width + '" y2="' + y + '" stroke="#e5e7eb"/>';
+    if (r % 2 === 0) {
+      const min = startMin + r * step;
+      grid += '<text x="' + (leftW - 6) + '" y="' + (y + 13) + '" font-size="11" fill="#6b7280" text-anchor="end">' + fmtMin(min) + "</text>";
+    }
+  }
+  dates.forEach((dt, di) => {
+    const x = leftW + di * colW;
+    grid += '<line class="f-line" x1="' + x + '" y1="32" x2="' + x + '" y2="' + (32 + totalH) + '" stroke="#e5e7eb"/>';
+    const day = finals.find(f => f.date === dt);
+    const label = dt + (day ? " " + (UI_LANG === "en" ? EN_DAY_ABBR[day.day] : DAY_CN[day.day] || "") : "");
+    grid += '<text class="f-head" x="' + (x + colW / 2) + '" y="22" font-size="12" font-weight="bold" fill="#1f2937" text-anchor="middle">' + escapeHtml(label) + "</text>";
+  });
+  const totalHeight = 32 + totalH + 10;
+  return '<svg class="final-svg" xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + totalHeight + '" viewBox="0 0 ' + width + " " + totalHeight + '" style="max-width:100%;height:auto;border-radius:8px">' +
+    grid + blocks + "</svg>";
+}
+
+function renderDetails(s) {
+  const box = $("details");
+  let html = "";
+
+  // 步行
+  if (!state.options.use_walking) {
+    html += '<div class="muted">已关闭步行估算</div>';
+  } else if (!s.walking_ok) {
+    html += '<div class="muted">部分楼宇无法匹配，步行时间仅供参考</div>';
+  }
+  html += '<div class="walking-list">';
+  for (const d of DAYS) {
+    const det = (s.walking_detail || {})[d] || [];
+    if (!det.length) continue;
+    const meetings = [];
+    for (const c of s.courses) {
+      for (const m of c.meetings) {
+        if (m.kind !== "final" && !m.tba && m.day === d) meetings.push({ m, c });
+      }
+    }
+    meetings.sort((a, b) => (a.m.start || 0) - (b.m.start || 0));
+    html += "<div><b>" + DAY_CN[d] + "：</b>";
+    const bits = [];
+    det.forEach((t, i) => {
+      const a = meetings[i], b = meetings[i + 1];
+      const t1 = a ? (a.m.start_display || "?") : "?";
+      const t2 = b ? (b.m.start_display || "?") : "?";
+      if (t.minutes != null) {
+        bits.push(t1 + " " + t.from + " → " + t2 + " " + t.to + "：" + t.minutes + " 分钟");
+      } else {
+        bits.push(t1 + " " + (t.from || "?") + " → " + t2 + " " + (t.to || "?") + "：无法估算");
+      }
+    });
+    html += bits.join("<br>") + "</div>";
+  }
+  html += "</div>";
+
+  // 一次性考试（期中/随堂考）
+  html += "<h3 style='margin:12px 0 6px;font-size:14px'>考试安排（非期末）</h3>";
+  html += '<div class="final-list">';
+  let examCount = 0;
+  for (const c of s.courses || []) {
+    for (const m of c.meetings || []) {
+      if (m.kind !== "final" && !m.tba && m.date) {
+        examCount++;
+        html += "<div>" + escapeHtml(c.module_code) + " · 考试 " + fmtDateShort(m.date) + " " +
+          (m.start_display || "") + "-" + (m.end_display || "") + " · " + (m.room || m.building || "?") + "</div>";
+      }
+    }
+  }
+  if (!examCount) html += '<div class="muted">没有非期末的一次性考试</div>';
+  html += "</div>";
+
+  // 期末（独立按日期日历）
+  html += "<h3 style='margin:12px 0 6px;font-size:14px'>期末考试（按日期）</h3>";
+  html += finalsCalendarHtml(s);
+  box.innerHTML = html;
+}
+
+function scheduleText(s, idx) {
+  let lines = [];
+  lines.push("方案 " + (idx + 1) + "：" + s.total_units + " 学分，每天：" + (s.class_days || []).map(d => DAY_CN[d]).join("、"));
+  if (s.walking_total != null) lines.push("每周课间步行合计约 " + s.walking_total + " 分钟");
+  for (const c of s.courses) {
+    const times = fmtDays(c.meetings, true);
+    lines.push("- " + c.module_code + " " + c.module_name + "（" + (c.instructors || []).join("/") + "）" + (c.section_code ? " " + c.section_code : "") + "：" + times);
+  }
+  if (s.finals && s.finals.length) {
+    lines.push("期末考试：");
+    for (const f of s.finals) {
+      const courseLabel = f.course ? f.course + (f.course_name ? " " + f.course_name : "") : "";
+      lines.push("- " + (courseLabel ? courseLabel + "：" : "") + (f.date ? f.date + " " : "") + (DAY_CN[f.day] || f.day) + " " + (f.start_display || "") + "-" + (f.end_display || "") + (f.room ? " " + f.room : ""));
+    }
+  }
+  return lines.join("\n");
+}
+
+function courseOptionsText() {
+  const lines = [];
+  for (const c of state.courses) {
+    lines.push("【" + c.module_code + " " + c.module_name + "】" + c.units + " 学分");
+    for (const s of c.sections) {
+      const times = fmtDays(s.meetings, true);
+      const instrText = (s.instructors || []).map(n => {
+        const score = state.rmp[n];
+        return n + (score && score.avgRating ? "（RMP " + score.avgRating + "/" + score.numRatings + "人）" : "");
+      }).join("/") || "待定";
+      lines.push("  " + s.section_code + " [" + typeAbbr(s.type) + "] 老师：" + instrText +
+        " 时间：" + (times || "待定") + " 空位：" + (s.seats_available ?? "?") + "/" + (s.capacity ?? "?"));
+    }
+  }
+  return lines.join("\n");
+}
+
+function rmpText(n) {
+  const score = state.rmp[n];
+  if (!score || !score.avgRating) return "";
+  return "（RMP " + score.avgRating + "/" + score.numRatings + "人，愿再上" + score.wouldTakeAgainPercent + "%，难度" + score.avgDifficulty + "）";
+}
+
+function sectionFullText(c, s) {
+  const type = typeAbbr(s.type);
+  const times = fmtDays(s.meetings, true);
+  const instr = (s.instructors || []).map(n => n + rmpText(n)).join("、") || "待定";
+  const seats = s.capacity != null ? (s.seats_available ?? "?") + "/" + s.capacity : "?";
+  const finals = (s.meetings || []).filter(m => m.kind === "final" && m.date)
+    .map(m => "期末 " + fmtDateShort(m.date) + " " + (DAY_CN[m.day] || m.day) + " " + (m.start_display || "") + "-" + (m.end_display || "") + " " + (m.room || m.building || "?"))
+    .join("；");
+  let line = "  " + s.section_code + " [" + type + "] " + (times || t("时间待定")) + t("老师：") + instr + t("剩余座位：") + seats;
+  if (finals) line += "；" + finals;
+  return line;
+}
+
+function buildFullCourseContext() {
+  const lines = [];
+  lines.push("学期：" + state.term);
+  for (const c of state.courses) {
+    const d = wizardDecided()[c.module_code];
+    const fams = Object.keys(c.family_combos || {}).sort((a, b) => parseInt(a) - parseInt(b));
+    const fc = state.wizard.feasibility ? state.wizard.feasibility.familyCounts[c.module_code] || {} : {};
+    let status;
+    if (d && d.family) {
+      const combo = (c.family_combos[d.family] || [])[0] || [];
+      const lec = combo.find(s => s.type === "lecture") || combo[0];
+      const comps = Object.entries(d.components || {}).map(([t, code]) => {
+        const sec = (c.sections || []).find(x => x.section_code === code);
+        return t + ":" + code + (sec ? " " + fmtDays(sec.meetings, true) : "");
+      }).join("；");
+      status = "已定：分组" + d.family + (lec ? " " + fmtDays(lec.meetings, true) : "") + (comps ? "（" + comps + "）" : "");
+    } else {
+      status = "尚未定班";
+    }
+    lines.push("【" + c.module_code + " " + c.module_name + "】" + c.units + "学分，" + status);
+    if (fams.length && state.wizard.feasibility) {
+      lines.push("  各分组可行组合数：" + fams.map(f => "分组" + f + "=" + (fc[f] || 0) + "种").join("，"));
+    }
+    for (const s of c.sections || []) lines.push(sectionFullText(c, s));
+  }
+  if (state.schedules && state.schedules.length) {
+    const picks = pickDiverseSchedules(Math.min(20, state.schedules.length));
+    lines.push("可行课表总数：" + state.schedules.length);
+    lines.push("可行课表样例（前" + picks.length + "个不同的组合）：");
+    picks.forEach(({ s, idx }) => {
+      lines.push("  方案" + (idx + 1) + "：" + (s.courses || []).map(x => x.module_code + ":" + x.section_code).join("，"));
+    });
+  }
+  return lines.join("\n");
+}
+
+// 按“每门课老师组合”分组，从每组挑代表，避免只发排在最前面的相似方案
+function pickDiverseSchedules(n) {
+  const all = state.schedules;
+  if (all.length <= n) return all.map((s, i) => ({ s, idx: i }));
+  const groups = new Map();
+  all.forEach((s, i) => {
+    const seenMods = new Set();
+    const sigParts = [];
+    for (const c of s.courses) {
+      if (seenMods.has(c.module_code)) continue;
+      seenMods.add(c.module_code);
+      sigParts.push(c.module_code + ":" + (c.instructors || []).join("/"));
+    }
+    const sig = sigParts.sort().join(" | ");
+    if (!groups.has(sig)) groups.set(sig, []);
+    groups.get(sig).push(i);
+  });
+  const chosen = [];
+  const perGroup = Math.max(1, Math.floor(n / groups.size));
+  for (const idxs of groups.values()) chosen.push(...idxs.slice(0, perGroup));
+  let round = perGroup;
+  while (chosen.length < n && round < all.length) {
+    let added = false;
+    for (const idxs of groups.values()) {
+      if (chosen.length >= n) break;
+      if (idxs[round] !== undefined) { chosen.push(idxs[round]); added = true; }
+    }
+    if (!added) break;
+    round++;
+  }
+  return [...new Set(chosen)].sort((a, b) => a - b).slice(0, n).map(i => ({ s: all[i], idx: i }));
+}
+
+$("copyBtn").addEventListener("click", () => {
+  const s = state.schedules[state.selected];
+  if (!s) return;
+  const text = scheduleText(s, state.selected);
+  navigator.clipboard.writeText(text).then(() => {
+    $("dsMsg").innerHTML = '<div class="ok">已复制到剪贴板</div>';
+  }).catch(() => { $("dsMsg").innerHTML = '<div class="err">复制失败，请手动选择</div>'; });
+});
+
+loadTerms();
+setInterval(renderTermUpdated, 60000);
+
+// 本地记住 DeepSeek 设置（Key / 模型 / 目标），刷新页面后自动恢复
+const DEFAULT_PROMPT_EN = "I prefer classes no earlier than 9:30 AM; math and CS classes should not be back-to-back; commute should ideally be within 10 minutes; between 11 AM and 2 PM, keep about an hour free for lunch.";
+
+function loadDsSettings() {
+  const savedKey = localStorage.getItem("dsKey");
+  if (savedKey) $("dsKey").value = savedKey;
+  const savedModel = localStorage.getItem("dsModel");
+  if (savedModel) {
+    const legacy = { "deepseek-chat": "flash-fast", "deepseek-reasoner": "flash-think" };
+    $("dsModel").value = legacy[savedModel] || savedModel;
+  }
+  const savedPrompt = localStorage.getItem("dsPrompt") || localStorage.getItem("dsGoal");
+  if (savedPrompt) $("dsPrompt").value = savedPrompt;
+  else if (UI_LANG === "en") $("dsPrompt").value = DEFAULT_PROMPT_EN;
+}
+
+$("dsKey").addEventListener("input", () => {
+  localStorage.setItem("dsKey", $("dsKey").value.trim());
+});
+$("dsModel").addEventListener("change", () => {
+  localStorage.setItem("dsModel", $("dsModel").value);
+});
+$("dsPrompt").addEventListener("input", () => {
+  localStorage.setItem("dsPrompt", $("dsPrompt").value);
+});
+$("dsKeyClear").addEventListener("click", () => {
+  localStorage.removeItem("dsKey");
+  $("dsKey").value = "";
+  $("dsMsg").innerHTML = '<div class="ok">已清除本地保存的 Key</div>';
+});
+
+loadDsSettings();
+restoreAppState();
+initSplitter();
+$("courseInput").focus();
+updateExportButtons();
+
+$("convClear").addEventListener("click", async () => {
+  if (!confirm(t("确定清空全部对话记录？此操作不可恢复。"))) return;
+  try {
+    await api("/api/conversations", { method: "DELETE" });
+    state.conversations = [];
+    renderConversations();
+  } catch (e) {}
+});
+
+// ===================== 逐门向导 =====================
+
+async function requestSchedules(modules, locks, pins, sectionPins, options) {
+  const d = await api("/api/schedules", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      term: state.term,
+      modules,
+      locks,
+      pins,
+      section_pins: sectionPins,
+      options,
+    }),
+  });
+  const jobId = d.job_id;
+  for (;;) {
+    await sleep(300);
+    const p = await api("/api/progress?job=" + encodeURIComponent(jobId));
+    const prog = p.progress || {};
+    if (prog.status === "error") throw new Error(prog.error || "生成失败");
+    if (prog.status === "done") {
+      const r = await api("/api/schedules/result?job=" + encodeURIComponent(jobId));
+      return r.schedules || [];
+    }
+  }
+}
+
+function wizardCourses() { return state.courses; }
+function wizardDecided() { return state.wizard.decided; }
+function wizardPending() { return wizardCourses().filter(c => !(c.module_code in wizardDecided())); }
+function famOf(sectionCode) { return String(sectionCode || "").split("-")[0]; }
+
+function mainTypeFor(c, fam) {
+  const combo = ((c.family_combos || {})[fam] || [])[0] || [];
+  const lec = combo.find(s => s.type === "lecture");
+  return lec ? "lecture" : (combo[0] ? combo[0].type : "");
+}
+
+function computeFeasibility(schedules) {
+  const familyCounts = {};
+  const sectionCounts = {};
+  for (const s of schedules) {
+    for (const c of s.courses) {
+      const fam = famOf(c.section_code);
+      (familyCounts[c.module_code] = familyCounts[c.module_code] || {})[fam] = (familyCounts[c.module_code][fam] || 0) + 1;
+      (sectionCounts[c.module_code] = sectionCounts[c.module_code] || {})[c.type] = sectionCounts[c.module_code][c.type] || {};
+      sectionCounts[c.module_code][c.type][c.section_code] = (sectionCounts[c.module_code][c.type][c.section_code] || 0) + 1;
+    }
+  }
+  return { total: schedules.length, familyCounts, sectionCounts };
+}
+
+async function refreshWizardFeasibility() {
+  if (!wizardCourses().length) return;
+  state.wizard.loading = true;
+  state.wizard.conflictInfo = null;
+  renderWizard();
+  try {
+    const pins = {};
+    const secPins = {};
+    for (const [mod, d] of Object.entries(wizardDecided())) {
+      pins[mod] = d.family;
+      secPins[mod] = d.components;
+    }
+    const schedules = await requestSchedules(
+      wizardCourses().map(c => c.module_code),
+      {},
+      pins,
+      secPins,
+      { only_open: false, use_walking: false }
+    );
+    state.wizard.feasibility = computeFeasibility(schedules);
+    if (state.wizard.feasibility.total === 0) {
+      state.wizard.conflictInfo = { message: "当前已定的选择互相冲突，没有可行组合。" };
+    }
+  } catch (e) {
+    state.wizard.feasibility = null;
+    state.wizard.conflictInfo = { message: "计算失败：" + e.message };
+  }
+  state.wizard.loading = false;
+  renderWizard();
+}
+
+function recommendedOrder() {
+  const f = state.wizard.feasibility;
+  const pending = wizardPending();
+  pending.sort((a, b) => {
+    const fa = f && f.familyCounts[a.module_code] ? Object.keys(f.familyCounts[a.module_code]).length : 999;
+    const fb = f && f.familyCounts[b.module_code] ? Object.keys(f.familyCounts[b.module_code]).length : 999;
+    return fa - fb;
+  });
+  return pending.map(c => c.module_code);
+}
+
+function currentLectureFamilies() {
+  const c = wizardCourses().find(x => x.module_code === state.wizard.current);
+  if (!c) return [];
+  const fams = Object.keys(c.family_combos || {}).sort((a, b) => parseInt(a) - parseInt(b));
+  const fc = state.wizard.feasibility ? state.wizard.feasibility.familyCounts[c.module_code] || {} : {};
+  return fams.map(fam => {
+    const combo = c.family_combos[fam][0] || [];
+    const lec = combo.find(s => s.type === "lecture") || combo[0];
+    return { fam, lec, count: fc[fam] || 0 };
+  });
+}
+
+function currentComponentOptions() {
+  const c = wizardCourses().find(x => x.module_code === state.wizard.current);
+  const d = wizardDecided()[state.wizard.current];
+  if (!c || !d || !d.family) return [];
+  const counts = state.wizard.feasibility ? state.wizard.feasibility.sectionCounts[c.module_code] || {} : {};
+  const types = {};
+  for (const s of c.sections || []) {
+    if (s.type === d.mainType) continue;
+    (types[s.type] = types[s.type] || []).push(s);
+  }
+  const out = [];
+  for (const [type, sections] of Object.entries(types)) {
+    out.push({
+      type,
+      chosen: d.components[type] || null,
+      sections: sections.map(s => ({ ...s, count: counts[type] ? counts[type][s.section_code] || 0 : 0 })),
+    });
+  }
+  return out;
+}
+
+function wizardPreviewSchedule() {
+  const courses = [];
+  let totalUnits = 0;
+  for (const c of wizardCourses()) {
+    let d = wizardDecided()[c.module_code];
+    if (c.module_code === state.wizard.current && state.wizard.draft) d = state.wizard.draft;
+    if (!d || !d.family) continue;
+    const combo = (c.family_combos[d.family] || [])[0] || [];
+    const lec = combo.find(s => s.type === "lecture") || combo[0];
+    if (!lec) continue;
+    const chosen = new Set([lec.section_code]);
+    for (const code of Object.values(d.components || {})) chosen.add(code);
+    for (const s of c.sections) {
+      if (!chosen.has(s.section_code)) continue;
+      courses.push({
+        module_code: c.module_code,
+        module_name: c.module_name,
+        section_code: s.section_code,
+        type: s.type,
+        instructors: s.instructors,
+        seats_available: s.seats_available,
+        capacity: s.capacity,
+        meetings: s.meetings,
+      });
+    }
+    totalUnits += c.units;
+  }
+  const classDays = [];
+  for (const c of courses) {
+    for (const m of c.meetings) {
+      if (m.kind !== "final" && !m.tba && m.day && !classDays.includes(m.day)) classDays.push(m.day);
+    }
+  }
+  classDays.sort((a, b) => DAYS.indexOf(a) - DAYS.indexOf(b));
+  const finals = [];
+  for (const c of courses) {
+    for (const m of c.meetings) {
+      if (m.kind === "final" && !m.tba && m.date) {
+        finals.push({
+          course: c.module_code,
+          course_name: c.module_name,
+          date: m.date,
+          day: m.day,
+          start_display: m.start_display,
+          end_display: m.end_display,
+          room: m.room,
+          building: m.building,
+        });
+      }
+    }
+  }
+  finals.sort((a, b) => (a.date || "").localeCompare(b.date || "") || (parseDisplayTime(a.start_display) - parseDisplayTime(b.start_display)));
+  return {
+    courses,
+    total_units: totalUnits,
+    walking_total: null,
+    walking_ok: true,
+    walking_detail: {},
+    finals,
+    class_days: classDays,
+  };
+}
+
+function renderWizardPreview() {
+  const s = wizardPreviewSchedule();
+  updateExportButtons();
+  if (!s.courses.length) {
+    $("calendar").innerHTML = '<div class="muted" style="padding:20px">选定课程后，这里会实时显示日历预览（格子里含已选人数/总人数）。</div>';
+    $("details").innerHTML = "";
+    return;
+  }
+  renderCalendar(s);
+  renderDetails(s);
+}
+
+function renderWizard() {
+  const body = $("wizardBody");
+  if (!body) return;
+  if (!wizardCourses().length) {
+    body.innerHTML = '<div class="muted">先在上方添加课程，向导就会自动出现。</div>';
+    return;
+  }
+  let html = "";
+  const decidedKeys = Object.keys(wizardDecided());
+  if (decidedKeys.length) {
+    html += "<div style='margin-bottom:8px'><b>已决定：</b><br>";
+    for (const mod of decidedKeys) {
+      const c = wizardCourses().find(x => x.module_code === mod);
+      const d = wizardDecided()[mod];
+      const comps = Object.entries(d.components || {}).map(([t, code]) => t + ":" + code).join("，") || "组件待定";
+      html += '<span class="badge">' + escapeHtml(mod) + " 分组" + d.family + "（" + escapeHtml(comps) + '） <button class="ghost" data-change="' + mod + '">改</button></span> ';
+    }
+    html += "</div>";
+  }
+  if (state.wizard.loading) {
+    html += '<div class="muted">正在计算可行空间…</div>';
+    body.innerHTML = html;
+    bindWizardButtons();
+    renderWizardPreview();
+    return;
+  }
+  if (state.wizard.conflictInfo) {
+    html += '<div class="err">' + escapeHtml(state.wizard.conflictInfo.message) + "</div>";
+    html += '<div class="row" style="margin:6px 0"><button id="conflictSolve" class="ghost">列出可行替代</button>';
+    if (state.wizard.current && wizardDecided()[state.wizard.current]) {
+      html += '<button id="conflictBack" class="ghost">换一个正课班</button>';
+    }
+    html += '</div><div id="conflictOut"></div>';
+  }
+  if (!state.wizard.current) {
+    const pending = wizardPending();
+    if (pending.length) {
+      const order = recommendedOrder();
+      html += "<div style='margin-bottom:6px'><b>下一步：</b>按推荐顺序选一门（可行正课班少的优先）</div><div class='row wiz-picks'>";
+      for (const mod of order) {
+        const c = wizardCourses().find(x => x.module_code === mod);
+        const n = state.wizard.feasibility ? Object.keys(state.wizard.feasibility.familyCounts[mod] || {}).length : "?";
+        html += '<button class="ghost wiz-pick" data-pick="' + mod + '">' + escapeHtml(c.module_code) + '<span class="badge">' + n + " 个可行班</span></button>";
+      }
+      html += "</div>";
+    } else {
+      html += "<div style='margin-bottom:6px'><b>全部课程已决定！</b></div>";
+      html += '<button id="wizardFinal" class="ghost">生成最终课表并查看日历</button>';
+    }
+  } else {
+    const c = wizardCourses().find(x => x.module_code === state.wizard.current);
+    const d = wizardDecided()[c.module_code];
+    if (state.wizard.conflictInfo && d && d.family) {
+      html += "<div class='muted'>当前课程 " + escapeHtml(c.module_code) + " 的新选择与已定课程冲突，请先处理上方冲突提示（换正课班或列出替代）。</div>";
+    } else if (!d || !d.family) {
+      html += "<div style='margin-bottom:6px'><b>" + escapeHtml(c.module_code + " " + c.module_name) + "：选择正课班</b></div>";
+      html += '<div class="row" style="margin-bottom:6px"><button id="wizPickOther" class="ghost">选择其他课程</button></div>';
+      for (const opt of currentLectureFamilies()) {
+        const lec = opt.lec;
+        const instr = (lec.instructors || []).join("/") || "待定";
+        const score = state.rmp[lec.instructors ? lec.instructors[0] : ""];
+        const rmpTxt = score && score.avgRating ? " · RMP " + score.avgRating + "（" + score.numRatings + "人）" : "";
+        const times = fmtDays(lec.meetings, true);
+        const seatsTxt = (lec.seats_available != null && lec.capacity != null)
+          ? " · 剩余座位：" + lec.seats_available + "/" + lec.capacity
+          : "";
+        const disabled = opt.count === 0 ? " disabled" : "";
+        const isDraft = state.wizard.draft && state.wizard.draft.family === opt.fam;
+        html += '<button class="wiz-lecture" data-lecture="' + opt.fam + '"' + disabled +
+          ' style="' + (isDraft ? "outline:2px solid var(--accent);outline-offset:1px" : "") + '">' +
+          "<b>分组" + opt.fam + " · " + escapeHtml(instr) + "</b>" + rmpTxt +
+          '<span class="wiz-meta"><br>' + escapeHtml(times) + seatsTxt + "</span>" +
+          (opt.count ? ' <span class="badge">' + opt.count + " 种组合</span>" : ' <span class="badge">不可行</span>') +
+          "</button>";
+      }
+      if (state.wizard.draft && state.wizard.draft.family) {
+        html += '<div class="row" style="margin-top:8px"><button id="wizConfirmLecture" class="ghost">确认正课</button><button id="wizCancelLecture" class="ghost">取消选择</button></div>';
+      }
+    } else {
+      html += "<div style='margin-bottom:6px'><b>" + escapeHtml(c.module_code) + "：选择讨论/实验等（可选）</b></div>";
+      const groups = currentComponentOptions();
+      if (!groups.length) {
+        html += '<div class="muted">这门课没有其他组件，直接确认即可。</div>';
+      }
+      for (const grp of groups) {
+        html += "<div style='margin:6px 0'><b>" + escapeHtml(grp.type) + "</b><br>";
+        const viable = grp.sections.filter(s => s.count > 0);
+        for (const s of viable) {
+          const times = fmtDays(s.meetings, true);
+          const sel = grp.chosen === s.section_code ? " style='outline:2px solid var(--accent)'" : "";
+          const seatsTxt = (s.capacity != null && s.seats_available != null)
+            ? " · 剩余座位：" + s.seats_available + "/" + s.capacity
+            : "";
+          html += '<button class="ghost" data-comp="' + s.section_code + '" data-type="' + escapeHtml(grp.type) + '"' + sel + ' style="margin:2px">' +
+            escapeHtml(s.section_code) + " " + escapeHtml(times) + seatsTxt + "（" + s.count + "）</button>";
+        }
+        html += "</div>";
+      }
+      html += "<div class='row' style='margin-top:8px'><button id='wizAuto' class='ghost'>自动选择剩余</button><button id='wizConfirm' class='ghost'>确认这门课</button></div>";
+    }
+  }
+  body.innerHTML = html;
+  bindWizardButtons();
+  renderWizardPreview();
+}
+
+function bindWizardButtons() {
+  const body = $("wizardBody");
+  if (!body) return;
+  body.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", () => {
+    state.wizard.current = b.dataset.pick;
+    state.wizard.draft = null;
+    refreshWizardFeasibility();
+  }));
+  body.querySelectorAll("[data-change]").forEach(b => b.addEventListener("click", () => {
+    const mod = b.dataset.change;
+    delete wizardDecided()[mod];
+    state.wizard.current = mod;
+    state.wizard.draft = null;
+    scheduleSaveState();
+    refreshWizardFeasibility();
+  }));
+  body.querySelectorAll("[data-lecture]").forEach(b => b.addEventListener("click", () => {
+    const mod = state.wizard.current;
+    const c = wizardCourses().find(x => x.module_code === mod);
+    state.wizard.draft = { family: b.dataset.lecture, mainType: mainTypeFor(c, b.dataset.lecture), components: {} };
+    renderWizard();
+  }));
+  const confirmLecture = $("wizardBody") && document.getElementById("wizConfirmLecture");
+  if (confirmLecture) confirmLecture.addEventListener("click", () => {
+    if (!state.wizard.draft) return;
+    wizardDecided()[state.wizard.current] = state.wizard.draft;
+    state.wizard.draft = null;
+    scheduleSaveState();
+    refreshWizardFeasibility();
+  });
+  const cancelLecture = $("wizardBody") && document.getElementById("wizCancelLecture");
+  if (cancelLecture) cancelLecture.addEventListener("click", () => {
+    state.wizard.draft = null;
+    renderWizard();
+  });
+  body.querySelectorAll("[data-comp]").forEach(b => b.addEventListener("click", () => {
+    const d = wizardDecided()[state.wizard.current];
+    d.components[b.dataset.type] = b.dataset.comp;
+    scheduleSaveState();
+    renderWizard();
+  }));
+  const auto = $("wizardBody") && document.getElementById("wizAuto");
+  if (auto) auto.addEventListener("click", () => {
+    const d = wizardDecided()[state.wizard.current];
+    for (const grp of currentComponentOptions()) {
+      if (!d.components[grp.type]) {
+        const first = grp.sections.find(s => s.count > 0);
+        if (first) d.components[grp.type] = first.section_code;
+      }
+    }
+    scheduleSaveState();
+    renderWizard();
+  });
+  const confirm = $("wizardBody") && document.getElementById("wizConfirm");
+  if (confirm) confirm.addEventListener("click", () => {
+    const d = wizardDecided()[state.wizard.current];
+    for (const grp of currentComponentOptions()) {
+      if (!d.components[grp.type]) {
+        const first = grp.sections.find(s => s.count > 0);
+        if (first) d.components[grp.type] = first.section_code;
+      }
+    }
+    scheduleSaveState();
+    state.wizard.draft = null;
+    state.wizard.current = null;
+    refreshWizardFeasibility();
+  });
+  const pickOther = $("wizardBody") && document.getElementById("wizPickOther");
+  if (pickOther) pickOther.addEventListener("click", () => {
+    state.wizard.current = null;
+    renderWizard();
+  });
+  const finalBtn = $("wizardBody") && document.getElementById("wizardFinal");
+  if (finalBtn) finalBtn.addEventListener("click", async () => {
+    finalBtn.disabled = true;
+    finalBtn.textContent = "正在生成…";
+    try {
+      const pins = {};
+      const secPins = {};
+      for (const [mod, d] of Object.entries(wizardDecided())) {
+        pins[mod] = d.family;
+        secPins[mod] = d.components;
+      }
+      const schedules = await requestSchedules(
+        wizardCourses().map(c => c.module_code),
+        {},
+        pins,
+        secPins,
+        { only_open: false, use_walking: state.options.use_walking }
+      );
+      if (!schedules.length) {
+        state.wizard.conflictInfo = { message: "没有可行组合，请回去调整。" };
+        renderWizard();
+        return;
+      }
+      state.schedules = schedules;
+      state.selected = 0;
+      renderSchedules();
+      renderCalendar(schedules[0]);
+      renderDetails(schedules[0]);
+      $("calendar").scrollIntoView({ behavior: "smooth", block: "start" });
+      if (schedules.length > 1) {
+        $("genMsg").innerHTML = '<div class="muted">还有 ' + (schedules.length - 1) + " 个组件变体，可到“全部方案模式”查看。</div>";
+      }
+    } catch (e) {
+      $("genMsg").innerHTML = '<div class="err">' + e.message + "</div>";
+    } finally {
+      finalBtn.disabled = false;
+      finalBtn.textContent = "生成最终课表并查看日历";
+    }
+  });
+  const solve = $("wizardBody") && document.getElementById("conflictSolve");
+  if (solve) solve.addEventListener("click", solveConflict);
+  const back = $("wizardBody") && document.getElementById("conflictBack");
+  if (back) back.addEventListener("click", () => {
+    delete wizardDecided()[state.wizard.current];
+    state.wizard.draft = null;
+    scheduleSaveState();
+    refreshWizardFeasibility();
+  });
+  const pinDs = $("wizardBody") && document.getElementById("wizPinDs");
+  if (pinDs) pinDs.addEventListener("click", deepSeekArrangeRemaining);
+  const wizAnalyzeBtn = $("wizardBody") && document.getElementById("wizAnalyze");
+  if (wizAnalyzeBtn) wizAnalyzeBtn.addEventListener("click", deepSeekAnalyzeCurrent);
+  const dsBtn = $("wizardBody") && document.getElementById("wizDs");
+  if (dsBtn) dsBtn.addEventListener("click", async () => {
+    const key = $("dsKey").value.trim();
+    if (!key) {
+      $("dsMsg").innerHTML = '<div class="err">请先填写 DeepSeek API Key</div>';
+      return;
+    }
+    const mod = state.wizard.current;
+    const c = wizardCourses().find(x => x.module_code === mod);
+    const opts = currentLectureFamilies().filter(o => o.count > 0).map(o => {
+      const lec = o.lec;
+      const instr = (lec.instructors || []).join("/") || "待定";
+      const score = state.rmp[lec.instructors ? lec.instructors[0] : ""];
+      const rmpTxt = score && score.avgRating ? "（RMP " + score.avgRating + "/" + score.numRatings + "人）" : "";
+      return "分组" + o.fam + "：" + instr + rmpTxt + "，" + fmtDays(lec.meetings, true) + "，" + o.count + "种组合";
+    });
+    const modelMap = {
+      "flash-fast": { model: "deepseek-v4-flash", thinking: false, effort: null },
+      "flash-think": { model: "deepseek-v4-flash", thinking: true, effort: "high" },
+      "pro-think": { model: "deepseek-v4-pro", thinking: true, effort: "high" },
+    };
+    const mc = modelMap[$("dsModel").value] || modelMap["flash-fast"];
+    const messages = [
+      { role: "system", content: "你是 UCSD 选课顾问。用户正在逐门选课，你只需要针对给出的这一门课的正课班做排序推荐，给出前 2-3 个候选和简短理由，不要输出完整课表。" },
+    { role: "user", content: t("给 DeepSeek 的话：") + ($("dsPrompt").value || t("未填写")) + "\n" + t("课程：") + c.module_code + " " + c.module_name + "\n" + t("候选正课班：") + "\n" + opts.join("\n") + "\n" + t("请排序推荐。") },
+    ];
+    const out = $("wizDsOut");
+    out.style.display = "block";
+    out.innerHTML = "";
+    dsBtn.disabled = true;
+    dsBtn.textContent = "DeepSeek 分析中…";
+    try {
+      const streamed = await streamDeepSeek({
+        api_key: key,
+        model: mc.model,
+        thinking: mc.thinking,
+        reasoning_effort: mc.effort,
+        messages,
+      }, null, { ansEl: out });
+      out.innerHTML = renderMarkdown(streamed.content || "（无回答）");
+    } catch (e) {
+      out.textContent = "出错：" + e.message;
+    } finally {
+      dsBtn.disabled = false;
+      dsBtn.textContent = "让 DeepSeek 排序建议";
+    }
+  });
+}
+
+async function solveConflict() {
+  const out = $("conflictOut");
+  if (!out) return;
+  out.innerHTML = '<div class="muted">正在计算每个已定课程的可行替代…</div>';
+  const pins = {};
+  const secPins = {};
+  for (const [mod, d] of Object.entries(wizardDecided())) {
+    pins[mod] = d.family;
+    secPins[mod] = d.components;
+  }
+  let html = "";
+  for (const mod of Object.keys(pins)) {
+    const p2 = { ...pins };
+    delete p2[mod];
+    const s2 = { ...secPins };
+    delete s2[mod];
+    try {
+      const schedules = await requestSchedules(
+        wizardCourses().map(c => c.module_code),
+        {},
+        p2,
+        s2,
+        { only_open: false, use_walking: false }
+      );
+      const fc = computeFeasibility(schedules).familyCounts[mod] || {};
+      const fams = Object.keys(fc);
+      if (fams.length) {
+        html += "<div style='margin:6px 0'><b>" + escapeHtml(mod) + " 可以改：</b>" +
+          fams.map(f => '<button class="ghost" data-fix="' + mod + '" data-fam="' + f + '">分组' + f + "（" + fc[f] + "）</button>").join(" ") +
+          "</div>";
+      }
+    } catch (e) {}
+  }
+  out.innerHTML = html || '<div class="muted">没有找到可行替代，可能需要先改回刚才那门课。</div>';
+  out.querySelectorAll("[data-fix]").forEach(b => b.addEventListener("click", () => {
+    const c = wizardCourses().find(x => x.module_code === b.dataset.fix);
+    wizardDecided()[b.dataset.fix] = { family: b.dataset.fam, mainType: mainTypeFor(c, b.dataset.fam), components: {} };
+    scheduleSaveState();
+    refreshWizardFeasibility();
+  }));
+}
+
+function resetWizard() {
+  state.wizard.decided = {};
+  state.wizard.current = null;
+  state.wizard.pinned = [];
+  state.wizard.draft = null;
+  state.wizard.loading = false;
+  state.wizard.feasibility = null;
+  state.wizard.conflictInfo = null;
+}
+
+function extractJson(text) {
+  let t = String(text || "").trim();
+  t = t.replace(/```json/gi, "").replace(/```/g, "");
+  let s = t.indexOf("[");
+  let e = t.lastIndexOf("]");
+  if (s >= 0 && e > s) {
+    try { return JSON.parse(t.slice(s, e + 1)); } catch (err) {}
+  }
+  s = t.indexOf("{");
+  e = t.lastIndexOf("}");
+  if (s >= 0 && e > s) {
+    try {
+      const o = JSON.parse(t.slice(s, e + 1));
+      return Array.isArray(o) ? o : (o.recommendations || o.recs || o.combinations || null);
+    } catch (err) {}
+  }
+  return null;
+}
+
+async function deepSeekArrangeRemaining() {
+  const key = $("dsKey").value.trim();
+  if (!key) {
+    $("dsMsg").innerHTML = '<div class="err">请先填写 DeepSeek API Key</div>';
+    return;
+  }
+  const pinnedMods = state.wizard.pinned.filter(m => wizardDecided()[m]);
+  const movable = wizardCourses().filter(c => !pinnedMods.includes(c.module_code));
+  if (!pinnedMods.length || !movable.length) {
+    $("dsMsg").innerHTML = '<div class="err">请先在日历上固定至少 1 门已决定的课，并保留至少 1 门可调整的课。</div>';
+    return;
+  }
+  const btn = document.getElementById("wizPinDs");
+  const out = $("wizPinOut");
+  const recs = $("wizPinRecs");
+  out.style.display = "block";
+  out.innerHTML = '<div class="muted">正在计算可行空间并让 DeepSeek 排课…</div>';
+  recs.innerHTML = "";
+  if (btn) { btn.disabled = true; btn.textContent = "DeepSeek 排课中…"; }
+  try {
+    const pins = {};
+    const secPins = {};
+    for (const mod of pinnedMods) {
+      const d = wizardDecided()[mod];
+      pins[mod] = d.family;
+      secPins[mod] = d.components;
+    }
+    const schedules = await requestSchedules(
+      wizardCourses().map(c => c.module_code),
+      {},
+      pins,
+      secPins,
+      { only_open: false, use_walking: false }
+    );
+    const feas = computeFeasibility(schedules);
+    if (!feas.total) {
+      out.innerHTML = '<div class="err">固定课程之间已经冲突，没有可行空间。请先解除部分固定。</div>';
+      return;
+    }
+    const pinnedText = pinnedMods.map(mod => {
+      const c = wizardCourses().find(x => x.module_code === mod);
+      const d = wizardDecided()[mod];
+      const combo = (c.family_combos[d.family] || [])[0] || [];
+      const lec = combo.find(s => s.type === "lecture") || combo[0];
+      return c.module_code + " " + c.module_name + " 固定：分组" + d.family + " " + fmtDays(lec.meetings, true);
+    }).join("\n");
+    const movableText = movable.map(c => {
+      const fams = Object.keys(feas.familyCounts[c.module_code] || {}).sort((a, b) => parseInt(a) - parseInt(b));
+      if (!fams.length) return "【" + c.module_code + "】没有可行班";
+      const lines = fams.map(fam => {
+        const combo = (c.family_combos[fam] || [])[0] || [];
+        const lec = combo.find(s => s.type === "lecture") || combo[0];
+        const instr = (lec.instructors || []).join("/") || "待定";
+        const score = state.rmp[lec.instructors ? lec.instructors[0] : ""];
+        const rmpTxt = score && score.avgRating ? "（RMP " + score.avgRating + "/" + score.numRatings + "人）" : "";
+        return "  分组" + fam + ": " + instr + rmpTxt + ", " + fmtDays(lec.meetings, true) +
+          ", 剩余座位" + (lec.seats_available ?? "?") + "/" + (lec.capacity ?? "?") +
+          ", 组合数" + feas.familyCounts[c.module_code][fam];
+      });
+      return "【" + c.module_code + " " + c.module_name + "】\n" + lines.join("\n");
+    }).join("\n\n");
+    const modelMap = {
+      "flash-fast": { model: "deepseek-v4-flash", thinking: false, effort: null },
+      "flash-think": { model: "deepseek-v4-flash", thinking: true, effort: "high" },
+      "pro-think": { model: "deepseek-v4-pro", thinking: true, effort: "high" },
+    };
+    const mc = modelMap[$("dsModel").value] || modelMap["flash-fast"];
+    const messages = [
+      {
+        role: "system",
+        content: "你是 UCSD 选课顾问。已固定课程不能改；请从每门可调整课程的可行班中，每门各选一个，组成 2-3 个不冲突的完整组合。只输出 JSON，不要输出任何其他文字。JSON 格式：[{\"name\":\"推荐1\",\"choices\":{\"JAPN-020A\":{\"family\":\"004\",\"components\":{\"tu\":\"004-001-TU\"}},\"CCE-002\":{\"family\":\"007\"}}}]。choices 的 key 必须严格等于给出的课程代码。",
+      },
+      {
+        role: "user",
+        content: "已固定课程：\n" + pinnedText + "\n\n可调整课程的可行班：\n" + movableText + "\n\n请给出 2-3 组推荐组合（只输出 JSON）。",
+      },
+    ];
+    const streamed = await streamDeepSeek({
+      api_key: key,
+      model: mc.model,
+      thinking: mc.thinking,
+      reasoning_effort: mc.effort,
+      messages,
+    }, null, { ansEl: out });
+    out.innerHTML = renderMarkdown(streamed.content || "（无回答）");
+    const parsed = extractJson(streamed.content || "");
+    if (!Array.isArray(parsed)) {
+      recs.innerHTML = '<div class="muted">DeepSeek 没有返回可解析的组合，请直接看上面的回答手动选择。</div>';
+      return;
+    }
+    let html = "";
+    parsed.forEach((r, i) => {
+      const choices = r.choices || r;
+      if (!choices || typeof choices !== "object") return;
+      const label = Object.entries(choices).map(([mod, ch]) => mod + " 分组" + (ch.family || "?")).join(" + ");
+      html += '<div class="row" style="margin-top:6px"><button class="ghost" data-apply="' + i + '">推荐' + (i + 1) + "：" + escapeHtml(label) + "（应用）</button></div>";
+    });
+    recs.innerHTML = html || '<div class="muted">没有可用的推荐组合。</div>';
+    recs.querySelectorAll("[data-apply]").forEach(b => b.addEventListener("click", () => {
+      const r = parsed[parseInt(b.dataset.apply)];
+      const choices = r.choices || r;
+      let applied = 0;
+      for (const [mod, ch] of Object.entries(choices || {})) {
+        const c = wizardCourses().find(x => x.module_code === mod);
+        if (!c || !ch || !c.family_combos[ch.family]) continue;
+        wizardDecided()[mod] = { family: ch.family, mainType: mainTypeFor(c, ch.family), components: ch.components || {} };
+        applied++;
+      }
+      if (!applied) {
+        $("dsMsg").innerHTML = '<div class="err">推荐里的课程代码无法匹配，请手动选择。</div>';
+        return;
+      }
+      scheduleSaveState();
+      refreshWizardFeasibility();
+      $("dsMsg").innerHTML = '<div class="ok">已应用推荐组合（' + applied + " 门）。</div>";
+    }));
+  } catch (e) {
+    out.innerHTML = '<div class="err">' + escapeHtml(e.message) + "</div>";
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "让 DeepSeek 排剩余课程"; }
+  }
+}
+
+async function deepSeekAnalyzeCurrent() {
+  const key = $("dsKey").value.trim();
+  if (!key) {
+    $("dsMsg").innerHTML = '<div class="err">请先填写 DeepSeek API Key</div>';
+    return;
+  }
+  const mods = Object.keys(wizardDecided());
+  if (!mods.length) {
+    $("dsMsg").innerHTML = '<div class="err">先在向导里决定至少一门课，再让 DeepSeek 分析。</div>';
+    return;
+  }
+  const btn = document.getElementById("wizAnalyze");
+  const out = $("wizPinOut");
+  out.style.display = "block";
+  out.innerHTML = '<div class="muted">正在分析当前课表…</div>';
+  if (btn) { btn.disabled = true; btn.textContent = "分析中…"; }
+  try {
+    const curText = mods.map(mod => {
+      const c = wizardCourses().find(x => x.module_code === mod);
+      const d = wizardDecided()[mod];
+      const combo = (c.family_combos[d.family] || [])[0] || [];
+      const lec = combo.find(s => s.type === "lecture") || combo[0];
+      const comps = Object.entries(d.components || {}).map(([t, code]) => {
+        const sec = (c.sections || []).find(x => x.section_code === code);
+        return t + ":" + code + (sec ? " " + fmtDays(sec.meetings, true) : "");
+      }).join("，") || "组件待定";
+      return c.module_code + " " + c.module_name + " 分组" + d.family + " " + fmtDays(lec.meetings, true) + "；" + comps;
+    }).join("\n");
+    const modelMap = {
+      "flash-fast": { model: "deepseek-v4-flash", thinking: false, effort: null },
+      "flash-think": { model: "deepseek-v4-flash", thinking: true, effort: "high" },
+      "pro-think": { model: "deepseek-v4-pro", thinking: true, effort: "high" },
+    };
+    const mc = modelMap[$("dsModel").value] || modelMap["flash-fast"];
+    const messages = [
+      {
+        role: "system",
+        content: "你是 UCSD 选课顾问。用户已初步定好课表，请从作息合理性、课间通勤、期末考试分布、老师口碑、学业负荷等角度给出整体评估和建议（哪些值得保留、哪些可以调整）。只基于提供的信息，不要编造数据。",
+      },
+      {
+        role: "user",
+    content: t("给 DeepSeek 的话：") + ($("dsPrompt").value || t("未填写")) + "\n\n" + t("当前课表：") + "\n" + curText + "\n\n" + t("请给出整体建议。"),
+      },
+    ];
+    const streamed = await streamDeepSeek({
+      api_key: key,
+      model: mc.model,
+      thinking: mc.thinking,
+      reasoning_effort: mc.effort,
+      messages,
+    }, null, { ansEl: out });
+    await saveConversation({
+      id: "c" + Date.now(),
+      title: "课表分析 " + new Date().toLocaleString("zh-CN"),
+      created_at: new Date().toISOString(),
+      model_label: $("dsModel").selectedOptions.length ? $("dsModel").selectedOptions[0].textContent : "",
+      goal: $("dsPrompt").value || "",
+      schedules_summary: curText,
+      response: streamed.content || "",
+    });
+  } catch (e) {
+    out.innerHTML = '<div class="err">' + escapeHtml(e.message) + "</div>";
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "让 DeepSeek 分析当前课表"; }
+  }
+}
+
+$("modeSel").addEventListener("change", () => {
+  const mode = $("modeSel").value;
+  document.body.classList.toggle("mode-wizard", mode === "wizard");
+  document.body.classList.toggle("mode-all", mode !== "wizard");
+  renderCourseList();
+  if (mode === "wizard") {
+    renderWizard();
+    if (!state.wizard.feasibility && wizardCourses().length && !state.wizard.loading) refreshWizardFeasibility();
+  }
+});
+
+</script>
+</body>
+</html>

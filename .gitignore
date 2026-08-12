@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+saved_data.json
+buildings_cache.json
+routes_cache.json
+rmp_cache.json
+.DS_Store
+*.log
