@@ -73,19 +73,6 @@ README.md      This file
 - Vanilla HTML/CSS/JS (no frameworks, no bundler)
 - One file to deploy: `scheduler.py` + `index.html`
 
-## Terminology
-
-| 中文 | English |
-| --- | --- |
-| 分班 | section |
-| 分组（001/002…） | family |
-| 正课 | lecture |
-| 讨论 | discussion |
-| 实验 | lab |
-| 逐门向导 | step-by-step wizard |
-| 全部方案模式 | all-schedules mode |
-| 剩余座位 | seats left |
-
 ## Troubleshooting
 
 - **SSL certificate errors** — the app automatically retries UCSD public data without certificate verification; if it still fails, check your proxy/network.
