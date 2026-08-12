@@ -1,8 +1,8 @@
 # UCSD Schedule Helper (UCSD 排课助手)
 
-**English** | [中文](README.zh-CN.md)
-
 A local-first course scheduling tool for UCSD students. It pulls real section data from UCSD Class Planner, walks you through lecture/discussion choices, generates every conflict-free schedule, and can ask DeepSeek for advice — all in your browser, no account required.
+
+![Demo](docs/demo.png)
 
 ## Features
 
@@ -41,7 +41,7 @@ Then open <http://127.0.0.1:8778/>.
 2. **Wizard mode** (default) — decide one course at a time: lecture → discussion/lab. The calendar preview shows your chosen blocks and remaining seats.
 3. **All-schedules mode** — generate every conflict-free combination, browse them, compare up to 3, or pin/fix sections.
 4. **Export** — PNG / SVG / PDF with the schedule title, week grid, and final exams.
-5. **DeepSeek** (optional) — ask "is this schedule too heavy?"; the app automatically includes times, rooms, instructors, RMP, seats, and finals.
+5. **DeepSeek** (optional) — ask "is this schedule too heavy?"; the LLM will give response considering all course info and class combinations.
 
 Courses, wizard progress, favorites, and chat history auto-save to `saved_data.json` in the same folder. Delete that file to reset.
 

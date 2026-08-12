@@ -4,6 +4,8 @@
 
 一个本地优先的 UCSD 选课排课工具：从 UCSD Class Planner 拉取真实分班数据，通过向导逐步确定正课/讨论，枚举所有不冲突的课表组合，还可以让 DeepSeek 帮你参谋。全程在你的浏览器里运行，无需注册账号。
 
+![演示截图](docs/demo.png)
+
 ## 功能
 
 - **真实 UCSD 数据** — 分班、时间、教室、老师、剩余座位，来源为 UCSD Class Planner / TSS
