@@ -1,5 +1,7 @@
 # UCSD Schedule Helper (UCSD 排课助手)
 
+**English** | [中文](README.zh-CN.md)
+
 A local-first course scheduling tool for UCSD students. It pulls real section data from UCSD Class Planner, walks you through lecture/discussion choices, generates every conflict-free schedule, and can ask DeepSeek for advice — all in your browser, no account required.
 
 ## Features
