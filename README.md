@@ -24,9 +24,9 @@ A local-first course scheduling tool for UCSD students. It pulls real section da
 
 ## Quick Start
 
-Requirements: **Python 3.8+** and any modern browser.
+Requirements: **Python 3.8+** and any modern browser (if you don't have Python, download it from [python.org](https://www.python.org/) and check "Add Python to PATH" during installation).
 
-**Windows:** double-click `start.bat` (uses port 8778 and prevents double-start).
+**Windows:** double-click `start.bat` (uses port 8778 and prevents double-start). The browser opens automatically; close the terminal window or press `Ctrl+C` when done.
 
 **Manual / macOS / Linux:**
 
@@ -41,11 +41,13 @@ Then open <http://127.0.0.1:8778/>.
 
 ## How to Use
 
-1. **Add courses** — type a code like `MATH 100A` and click Add.
-2. **Wizard mode** (default) — decide one course at a time: lecture → discussion/lab. The calendar preview shows your chosen blocks and remaining seats.
-3. **All-schedules mode** — generate every conflict-free combination, browse them, compare up to 3, or pin/fix sections.
-4. **Export** — PNG / SVG / PDF with the schedule title, week grid, and final exams.
-5. **DeepSeek** (optional) — ask "is this schedule too heavy?"; the LLM will give response considering all course info and class combinations.
+1. **Add courses** — type a code like `MATH 100A`, `CSE 29`, or `JAPN-020A` (spaces and dashes are optional), pick from the dropdown or press Enter, then click Add.
+2. **Wizard mode** (default) — the wizard suggests the course with the fewest feasible sections first, then you decide one course at a time: lecture → discussion/lab. The calendar preview shows your chosen blocks and remaining seats; confirm to move on, or click "edit" next to a decided course to change it.
+3. **All-schedules mode** — switch to it under "Advanced" on the left, optionally lock instructors or show only open sections, then generate every conflict-free combination; browse them, compare up to 3, or pin/fix sections.
+4. **View the calendar** — below the week grid are walking-time hints and a date-based final-exam calendar; details include a daily walk breakdown and one-off exams (e.g., midterms).
+5. **Export** — top-right: PNG / SVG / PDF with the schedule title, week grid, and final exams.
+6. **DeepSeek** (optional) — ask "is this schedule too heavy?"; the LLM considers all course info and class combinations, with answers streamed and auto-saved to local chat history.
+7. **Favorites** — "Save current view" remembers your courses, wizard progress, and current schedule; click "Load" to resume.
 
 Courses, wizard progress, favorites, and chat history auto-save to `saved_data.json` in the same folder. Delete that file to reset.
 
@@ -68,7 +70,6 @@ scheduler.py   Python stdlib HTTP server + UCSD Class Planner proxy
 index.html     Single-page UI (vanilla HTML/CSS/JS, no build step)
 start.bat      Windows launcher (port 8778)
 README.md      This file
-使用说明.md     Chinese walkthrough
 ```
 
 ## Tech Stack
@@ -83,6 +84,9 @@ README.md      This file
 - **No feasible schedule** — remove instructor locks or the "only open sections" filter, or drop a course.
 - **Port already in use** — run `python scheduler.py --port 9000`.
 - **PDF colors look gray** — if your browser still strips backgrounds, enable "Background graphics" in the print dialog.
+- **Generation too slow** — turn off "estimate walking time" for a big speedup; be patient with the progress bar when there are many combinations.
+- **Browser didn't open** — visit `http://127.0.0.1:8778/` manually.
+- **Only FA26 in the term dropdown** — UCSD has only opened Fall 2026 so far; future terms appear automatically once available.
 
 ## Disclaimer
 
