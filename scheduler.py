@@ -3,7 +3,7 @@
 """
 UCSD 排课助手
 -------------
-纯 Python 标准库实现，无需安装任何第三方包。
+本地 Python 后端；UCSD 登录会话使用 Playwright。
 
 功能：
   1. 用 UCSD Class Planner 官方接口拉取课程分班
@@ -14,16 +14,19 @@ UCSD 排课助手
   6. 调用 DeepSeek API 对可行组合给出推荐（需要你自己的 API Key）
 
 运行方式：
-  python scheduler.py            # 默认端口 8777，自动打开浏览器
+  python scheduler.py            # 默认端口 8778，自动打开浏览器
   python scheduler.py --port 9000
 """
 
 import argparse
+import hashlib
+import base64
+import datetime
+from ucsd_session import UCSDSession, SessionError
 import json
 import math
 import os
 import re
-import ssl
 import sys
 import threading
 import time
@@ -43,6 +46,8 @@ INDEX_FILE = os.path.join(SCRIPT_DIR, "index.html")
 BUILDINGS_CACHE = os.path.join(SCRIPT_DIR, "buildings_cache.json")
 ROUTES_CACHE = os.path.join(SCRIPT_DIR, "routes_cache.json")
 SAVED_DATA = os.path.join(SCRIPT_DIR, "saved_data.json")
+UCSD = UCSDSession()
+
 RMP_CACHE_FILE = os.path.join(SCRIPT_DIR, "rmp_cache.json")
 
 CLASS_PLANNER = "https://classplanner.apps.ucsd.edu"
@@ -80,40 +85,23 @@ DAY_LABEL = {"M": "周一", "T": "周二", "W": "周三", "R": "周四", "F": "�
 
 # ----------------------------- 网络请求 -----------------------------
 
-_insecure_fallback_notice = [False]
+def _urlopen_verified(req, timeout):
+    """Keep TLS certificate verification enabled for every upstream service."""
+    return urllib.request.urlopen(req, timeout=timeout)
 
 
-def _urlopen_with_fallback(req, timeout):
-    """正常请求；遇到 HTTPS 证书校验失败时（常见于代理/本地证书问题），
-    自动改用不校验证书的方式重试一次。仅用于 UCSD 公开课程/楼宇/RMP 数据，
-    不用于 DeepSeek（涉及 API Key，保持严格校验）。"""
-    try:
-        return urllib.request.urlopen(req, timeout=timeout)
-    except urllib.error.URLError as e:
-        reason = e.reason
-        is_cert_error = isinstance(reason, ssl.SSLCertVerificationError) or (
-            reason is not None and "CERTIFICATE_VERIFY_FAILED" in str(reason)
-        )
-        if not is_cert_error:
-            raise
-        if not _insecure_fallback_notice[0]:
-            _insecure_fallback_notice[0] = True
-            print("[警告] HTTPS 证书校验失败，已自动改用不校验证书的方式重试（仅用于 UCSD 公开数据）")
-        return urllib.request.urlopen(req, timeout=timeout, context=ssl._create_unverified_context())
-
-
-def _http_json(url, method="GET", data=None, headers=None, timeout=60):
+def _http_json(url, method="GET", data=None, headers=None, timeout=60, json_body=False):
     """发送 HTTP 请求并解析 JSON；失败时抛出带信息的异常。"""
     req_headers = {"User-Agent": "Mozilla/5.0 (course-scheduler)"}
     if headers:
         req_headers.update(headers)
     body = None
     if data is not None:
-        body = urllib.parse.urlencode(data).encode("utf-8")
-        req_headers["Content-Type"] = "application/x-www-form-urlencoded"
+        body = (json.dumps(data) if json_body else urllib.parse.urlencode(data)).encode("utf-8")
+        req_headers["Content-Type"] = "application/json" if json_body else "application/x-www-form-urlencoded"
     req = urllib.request.Request(url, data=body, headers=req_headers, method=method)
     try:
-        with _urlopen_with_fallback(req, timeout) as resp:
+        with _urlopen_verified(req, timeout) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
     except urllib.error.HTTPError as e:
         detail = ""
@@ -128,32 +116,15 @@ def _http_json(url, method="GET", data=None, headers=None, timeout=60):
 
 
 def _http_json_body(url, payload, headers=None, timeout=60):
-    """发送 JSON body 的请求（用于 Class Planner 的 POST 搜索）。"""
-    req_headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0 (course-scheduler)"}
-    if headers:
-        req_headers.update(headers)
-    body = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=body, headers=req_headers, method="POST")
-    try:
-        with _urlopen_with_fallback(req, timeout) as resp:
-            raw = resp.read().decode("utf-8", errors="replace")
-    except urllib.error.HTTPError as e:
-        detail = ""
-        try:
-            detail = e.read().decode("utf-8", errors="replace")[:500]
-        except Exception:
-            pass
-        raise RuntimeError(f"HTTP {e.code}: {url}\n{detail}")
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"网络错误: {e.reason} ({url})")
-    return json.loads(raw)
+    return _http_json(url, method="POST", data=payload, headers=headers, timeout=timeout, json_body=True)
 
 
 # ----------------------------- Class Planner -----------------------------
 
 _course_search_cache = {}
 _detail_cache = {}
-_saved_lock = threading.Lock()
+_cache_times = {}
+_saved_lock = threading.RLock()
 _jobs_lock = threading.Lock()
 _jobs = {}
 _job_counter = 0
@@ -164,8 +135,10 @@ def _load_saved():
     try:
         with open(SAVED_DATA, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception:
+    except FileNotFoundError:
         return {"state": {}, "conversations": [], "combos": [], "bookmarks": []}
+    except (ValueError, OSError):
+        raise RuntimeError("保存文件损坏或无法读取，已阻止覆盖") from None
 
 
 def _save_saved(data):
@@ -178,7 +151,7 @@ def _save_saved(data):
 
 
 def get_terms():
-    d = _http_json(f"{CLASS_PLANNER}/api/v1/planner/terms", timeout=30)
+    d = UCSD.request("GET", "/api/v1/planner/terms", timeout=30)
     terms = d.get("terms", [])
     codes = [t["term_code"] for t in terms]
     updated = {
@@ -190,10 +163,10 @@ def get_terms():
 
 def search_courses(term, query):
     key = (term, query.lower())
-    if key in _course_search_cache:
+    if key in _course_search_cache and time.monotonic() - _cache_times.get(("search", key), 0) < 120:
         return _course_search_cache[key]
     url = f"{CLASS_PLANNER}/api/v1/planner/courses?{urllib.parse.urlencode({'term_code': term, 'q': query, 'limit': 10})}"
-    d = _http_json(url, timeout=30)
+    d = UCSD.request("GET", url.removeprefix(CLASS_PLANNER), timeout=30)
     out = []
     for c in d.get("candidates", []):
         out.append({
@@ -205,14 +178,17 @@ def search_courses(term, query):
             "section_count": c.get("section_count", 0),
             "open_section_count": c.get("open_section_count", 0),
         })
+    if len(_course_search_cache) >= 256:
+        _course_search_cache.clear()
     _course_search_cache[key] = out
+    _cache_times[("search", key)] = time.monotonic()
     return out
 
 
 def fetch_course_detail(term, module_code):
     """按 module_code（如 MATH-020D）获取完整分班数据。"""
     key = (term, module_code)
-    if key in _detail_cache:
+    if key in _detail_cache and time.monotonic() - _cache_times.get(("detail", key), 0) < 120:
         return _detail_cache[key]
     parts = module_code.split("-", 1)
     if len(parts) != 2:
@@ -236,12 +212,20 @@ def fetch_course_detail(term, module_code):
         "offset": 0,
         "limit": 48,
     }
-    d = _http_json_body(f"{CLASS_PLANNER}/api/v1/catalog/courses/search", payload, timeout=45)
+    d = UCSD.request("POST", "/api/v1/catalog/courses/search", payload, timeout=45)
     courses = d.get("courses", [])
     if not courses:
         raise RuntimeError(f"没有找到 {module_code} 的分班信息")
-    model = _normalize_course(courses[0])
+    matched = next((c for c in courses if c.get("module_code", "").upper() == module_code.upper()), None)
+    if matched is None:
+        raise ValueError("课程查询未返回精确匹配，请核对课程代码")
+    model = _normalize_course(matched)
+    if len(_detail_cache) >= 128:
+        _detail_cache.clear()
+    if len(_cache_times) >= 512:
+        _cache_times.clear()
     _detail_cache[key] = model
+    _cache_times[("detail", key)] = time.monotonic()
     return model
 
 
@@ -288,6 +272,8 @@ def _normalize_course(c):
         lists = [list(v) for v in comps.values()]
         combos = [[]]
         for lst in lists:
+            if len(combos) * len(lst) > 10000:
+                raise ValueError("单门课程分班组合过多，请缩小课程范围")
             combos = [c + [s] for c in combos for s in lst]
         family_combos[fam] = combos
 
@@ -306,10 +292,22 @@ def _normalize_course(c):
 # ----------------------------- 冲突检测 -----------------------------
 
 def _overlap(a, b):
-    if a.get("day") != b.get("day"):
-        return False
     if a.get("tba") or b.get("tba"):
         return False
+    da, db = a.get("date"), b.get("date")
+    if da and db:
+        if da != db:
+            return False
+    else:
+        def meeting_day(meeting):
+            if meeting.get("date"):
+                try:
+                    return "MTWRFSU"[datetime.date.fromisoformat(meeting["date"]).weekday()]
+                except (ValueError, TypeError):
+                    pass
+            return meeting.get("day")
+        if meeting_day(a) != meeting_day(b):
+            return False
     sa, ea = a.get("start"), a.get("end")
     sb, eb = b.get("start"), b.get("end")
     if sa is None or ea is None or sb is None or eb is None:
@@ -610,9 +608,13 @@ def generate_schedules(course_models, locks, options, on_progress=None, pins=Non
             raise RuntimeError(f"{cm['module_code']} 在当前条件下没有任何可选分班")
         pool.append((cm, combos))
 
+    if len(pool) > 15:
+        raise ValueError("最多添加 15 门课程")
     total_combos = 1
     for _, combos in pool:
         total_combos *= max(len(combos), 1)
+    if total_combos > 20000:
+        raise ValueError("组合超过 2 万，请先锁定老师或分班后重试")
     if on_progress:
         on_progress("enumerate", checked=0, total_combos=total_combos, found=0)
 
@@ -620,7 +622,11 @@ def generate_schedules(course_models, locks, options, on_progress=None, pins=Non
     current = []
     checked = [0]
 
+    deadline = time.monotonic() + 90
+
     def dfs(idx):
+        if time.monotonic() > deadline or len(results) >= 5000:
+            raise ValueError("排课达到时间或 5000 个结果上限，请先固定分班")
         if idx == len(pool):
             checked[0] += 1
             sections = [s for _, combo in current for s in combo]
@@ -670,6 +676,8 @@ def generate_schedules(course_models, locks, options, on_progress=None, pins=Non
 
     total_found = len(results)
     for idx, s in enumerate(results):
+        if time.monotonic() > deadline:
+            raise ValueError("步行计算超时，请关闭步行估算或缩小分班范围")
         s["metrics"] = _schedule_metrics(s, options.get("use_walking", True))
         if on_progress and (idx + 1) % 20 == 0:
             on_progress("metrics", metrics_done=idx + 1, metrics_total=total_found, found=total_found)
@@ -727,6 +735,7 @@ def _schedule_job(job_id, term, modules, locks, options, pins=None, section_pins
         "metrics_total": 0,
         "error": None,
     }
+    prog["created_at"] = time.time()
     with _jobs_lock:
         _jobs[job_id] = prog
     try:
@@ -748,17 +757,21 @@ def _schedule_job(job_id, term, modules, locks, options, pins=None, section_pins
 
 # ----------------------------- DeepSeek -----------------------------
 
-def call_deepseek(api_key, model, messages, thinking=None, reasoning_effort=None):
-    payload = {
-        "model": model or "deepseek-v4-flash",
-        "messages": messages,
-    }
+def _deepseek_payload(model, messages, thinking=None, reasoning_effort=None, stream=False):
+    payload = {"model": model or "deepseek-v4-flash", "messages": messages}
+    if stream:
+        payload["stream"] = True
     if thinking is not None:
         payload["thinking"] = {"type": "enabled" if thinking else "disabled"}
     if reasoning_effort:
         payload["reasoning_effort"] = reasoning_effort
     if not thinking:
         payload["temperature"] = 0.7
+    return payload
+
+
+def call_deepseek(api_key, model, messages, thinking=None, reasoning_effort=None):
+    payload = _deepseek_payload(model, messages, thinking, reasoning_effort)
     d = _http_json_body(
         DEEPSEEK_URL,
         payload,
@@ -811,7 +824,7 @@ def fetch_rmp_ratings(name):
         "Accept": "text/html",
     })
     try:
-        with _urlopen_with_fallback(req, 30) as resp:
+        with _urlopen_verified(req, 30) as resp:
             raw = resp.read().decode("utf-8", errors="replace")
     except Exception as e:
         return {"name": name, "matches": [], "best": None, "error": str(e)}
@@ -840,18 +853,25 @@ def _send_json(handler, obj, status=200):
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(raw)))
     handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(raw)
 
 
 def _read_body(handler):
+    if handler.headers.get("Transfer-Encoding"):
+        raise ValueError("不支持分块请求")
     length = int(handler.headers.get("Content-Length") or 0)
-    if length <= 0:
+    if length < 0 or length > 8 * 1024 * 1024:
+        raise ValueError("请求体超过 8 MB 上限")
+    if not length:
         return {}
-    try:
-        return json.loads(handler.rfile.read(length).decode("utf-8"))
-    except Exception:
-        return {}
+    if handler.headers.get_content_type() != "application/json":
+        raise ValueError("接口只接受 application/json")
+    data = json.loads(handler.rfile.read(length).decode("utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("请求必须是 JSON 对象")
+    return data
 
 
 class SchedulerHandler(BaseHTTPRequestHandler):
@@ -860,8 +880,67 @@ class SchedulerHandler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         sys.stderr.write("[%s] %s\n" % (time.strftime("%H:%M:%S"), fmt % args))
 
+    def end_headers(self):
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Frame-Options", "DENY")
+        super().end_headers()
+
+    def _guard(self):
+        expected = f"127.0.0.1:{self.server.server_port}"
+        local = f"localhost:{self.server.server_port}"
+        host = self.headers.get("Host", "")
+        if host not in {expected, local}:
+            _send_json(self, {"error": "非法 Host"}, 403)
+            return False
+        origin = self.headers.get("Origin")
+        if origin and origin != "http://" + host:
+            _send_json(self, {"error": "拒绝跨站请求"}, 403)
+            return False
+        if self.headers.get("Sec-Fetch-Site") == "cross-site":
+            _send_json(self, {"error": "拒绝跨站请求"}, 403)
+            return False
+        return True
+
     def _api(self, path, body=None, method="GET"):
+        if path in {"/api/state", "/api/conversations"}:
+            with _saved_lock:
+                return self._api_impl(path, body, method)
+        return self._api_impl(path, body, method)
+
+    def _api_impl(self, path, body=None, method="GET"):
+        methods = {
+            "/api/health": {"GET"}, "/api/auth/status": {"GET"},
+            "/api/auth/login": {"POST"}, "/api/auth/logout": {"POST"},
+            "/api/terms": {"GET"}, "/api/state": {"GET", "POST"},
+            "/api/conversations": {"GET", "POST", "DELETE"},
+            "/api/courses": {"GET"}, "/api/course": {"POST"},
+            "/api/refresh": {"POST"}, "/api/schedules": {"POST"},
+            "/api/progress": {"GET"}, "/api/schedules/result": {"GET"},
+            "/api/rmp": {"GET"}, "/api/route": {"POST"},
+            "/api/building": {"GET"}, "/api/deepseek": {"POST"},
+        }
+        if path in methods and method not in methods[path]:
+            _send_json(self, {"error": "不支持的请求方法"}, 405)
+            return
         try:
+            if path == "/api/health":
+                _send_json(self, {"app": "ucsd-scheduler", "version": 2})
+                return
+            if path == "/api/auth/status":
+                _send_json(self, UCSD.status())
+                return
+            if path == "/api/auth/login":
+                _course_search_cache.clear()
+                _detail_cache.clear()
+                _send_json(self, UCSD.login())
+                return
+            if path == "/api/auth/logout":
+                result = UCSD.logout()
+                _course_search_cache.clear()
+                _detail_cache.clear()
+                _send_json(self, result)
+                return
             if path == "/api/terms":
                 codes, updated = get_terms()
                 _send_json(self, {"terms": codes, "term_updated": updated})
@@ -869,7 +948,16 @@ class SchedulerHandler(BaseHTTPRequestHandler):
             if path == "/api/state":
                 if method == "POST":
                     data = _load_saved()
-                    data["state"] = (body or {}).get("state") or {}
+                    incoming = (body or {}).get("state") or {}
+                    if not isinstance(incoming, dict):
+                        raise ValueError("课程状态必须是对象")
+                    drafts = data.setdefault("term_states", {})
+                    previous = data.get("state") or {}
+                    if previous.get("term"):
+                        drafts[previous["term"]] = previous
+                    if incoming.get("term"):
+                        drafts[incoming["term"]] = incoming
+                    data["state"] = incoming
                     if "combos" in (body or {}):
                         data["combos"] = (body or {}).get("combos") or []
                     if "bookmarks" in (body or {}):
@@ -877,7 +965,13 @@ class SchedulerHandler(BaseHTTPRequestHandler):
                     _save_saved(data)
                     _send_json(self, {"ok": True})
                     return
-                _send_json(self, _load_saved())
+                data = _load_saved()
+                qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                term = (qs.get("term") or [None])[0]
+                if term:
+                    current = data.get("state") or {}
+                    data["state"] = (data.get("term_states") or {}).get(term) or (current if current.get("term") == term else {"term": term})
+                _send_json(self, data)
                 return
             if path == "/api/conversations":
                 if method == "POST":
@@ -922,9 +1016,20 @@ class SchedulerHandler(BaseHTTPRequestHandler):
             if path == "/api/schedules":
                 data = body or {}
                 global _job_counter
+                modules = data.get("modules") or []
+                if not isinstance(modules, list) or len(modules) > 15:
+                    raise ValueError("最多添加 15 门课程")
                 with _jobs_lock:
+                    now = time.time()
+                    for old_id, job in list(_jobs.items()):
+                        if job.get("status") != "running" and now - job.get("created_at", now) > 600:
+                            del _jobs[old_id]
+                    if sum(j.get("status") == "running" for j in _jobs.values()) >= 2 or len(_jobs) >= 30:
+                        _send_json(self, {"error": "任务过多，请等待现有任务完成"}, 429)
+                        return
                     _job_counter += 1
                     job_id = f"job{int(time.time() * 1000)}_{_job_counter}"
+                    _jobs[job_id] = {"status": "running", "created_at": now}
                 threading.Thread(
                     target=_schedule_job,
                     args=(
@@ -1002,8 +1107,12 @@ class SchedulerHandler(BaseHTTPRequestHandler):
                 _send_json(self, {"response": d})
                 return
             _send_json(self, {"error": "未知接口"}, status=404)
-        except Exception as e:
-            _send_json(self, {"error": str(e)}, status=500)
+        except SessionError as e:
+            _send_json(self, {"error": str(e), "code": e.code}, status=e.status)
+        except (ValueError, TypeError, KeyError):
+            _send_json(self, {"error": "请求参数无效"}, status=400)
+        except Exception:
+            _send_json(self, {"error": "本地服务处理失败，请重试"}, status=500)
 
     def _stream_deepseek(self, data):
         """把 DeepSeek 的流式回答原样转发给浏览器（SSE）。"""
@@ -1011,19 +1120,10 @@ class SchedulerHandler(BaseHTTPRequestHandler):
         if not api_key:
             _send_json(self, {"error": "请先填写 DeepSeek API Key"}, status=400)
             return
-        payload = {
-            "model": (data or {}).get("model") or "deepseek-v4-flash",
-            "messages": (data or {}).get("messages") or [],
-            "stream": True,
-        }
-        thinking = (data or {}).get("thinking")
-        if thinking is not None:
-            payload["thinking"] = {"type": "enabled" if thinking else "disabled"}
-        effort = (data or {}).get("reasoning_effort")
-        if effort:
-            payload["reasoning_effort"] = effort
-        if not thinking:
-            payload["temperature"] = 0.7
+        payload = _deepseek_payload(
+            data.get("model"), data.get("messages") or [],
+            data.get("thinking"), data.get("reasoning_effort"), stream=True,
+        )
         req = urllib.request.Request(
             DEEPSEEK_URL,
             data=json.dumps(payload).encode("utf-8"),
@@ -1068,6 +1168,8 @@ class SchedulerHandler(BaseHTTPRequestHandler):
         self.close_connection = True
 
     def do_GET(self):
+        if not self._guard():
+            return
         path = urllib.parse.urlparse(self.path).path
         if path.startswith("/api/"):
             self._api(path)
@@ -1078,6 +1180,11 @@ class SchedulerHandler(BaseHTTPRequestHandler):
                     raw = f.read()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html; charset=utf-8")
+                # Authorize this exact inline script; injected event handlers and scripts stay blocked.
+                script = raw.split(b"<script>", 1)[1].split(b"</script>", 1)[0].replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+                digest = base64.b64encode(hashlib.sha256(script).digest()).decode("ascii")
+                self.send_header("Content-Security-Policy", f"default-src 'none'; script-src 'sha256-{digest}'; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'")
+                self.send_header("Cache-Control", "no-store")
                 self.send_header("Content-Length", str(len(raw)))
                 self.end_headers()
                 self.wfile.write(raw)
@@ -1087,8 +1194,14 @@ class SchedulerHandler(BaseHTTPRequestHandler):
         _send_json(self, {"error": "not found"}, status=404)
 
     def do_POST(self):
+        if not self._guard():
+            return
         path = urllib.parse.urlparse(self.path).path
-        body = _read_body(self)
+        try:
+            body = _read_body(self)
+        except (ValueError, UnicodeError):
+            _send_json(self, {"error": "请求必须是有效 JSON 对象，且不超过 8 MB"}, 400)
+            return
         if path == "/api/deepseek/stream":
             self._stream_deepseek(body)
             return
@@ -1098,6 +1211,8 @@ class SchedulerHandler(BaseHTTPRequestHandler):
         _send_json(self, {"error": "not found"}, status=404)
 
     def do_DELETE(self):
+        if not self._guard():
+            return
         path = urllib.parse.urlparse(self.path).path
         if path.startswith("/api/"):
             self._api(path, None, "DELETE")
@@ -1107,7 +1222,7 @@ class SchedulerHandler(BaseHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description="UCSD 排课助手")
-    parser.add_argument("--port", type=int, default=8777, help="本地端口（默认 8777）")
+    parser.add_argument("--port", type=int, default=8778, help="本地端口（默认 8778）")
     parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
     parser.add_argument("--refresh-buildings", action="store_true", help="强制刷新楼宇缓存")
     args = parser.parse_args()
@@ -1140,6 +1255,9 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n已停止。")
+    finally:
+        server.server_close()
+        UCSD.close()
 
 
 if __name__ == "__main__":

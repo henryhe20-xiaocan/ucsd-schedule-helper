@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UCSD 排课助手</title>
 <style>
+[hidden] { display: none !important; }
   :root {
     --bg: #eef2f8;
     --card: #ffffff;
@@ -415,6 +416,10 @@
       <select id="termSel"></select>
       <span class="sub" id="termUpdated"></span>
     </label>
+    <button id="ucsdLogin" type="button">登录 UCSD</button>
+    <button id="ucsdCheck" type="button">检查连接</button>
+    <button id="ucsdLogout" type="button" hidden>清除本地登录</button>
+    <span class="sub" id="authStatus" role="status" aria-live="polite">未连接 UCSD</span>
     <button id="themeBtn" type="button" title="切换到黑夜模式" aria-label="切换白天/黑夜">
       <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
       <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
@@ -526,7 +531,7 @@
       </div>
       <div class="row" style="margin-bottom:8px">
         <button class="ghost" id="dsKeyClear" type="button">清除已保存的 Key</button>
-        <span class="muted">Key 只保存在本机浏览器（localStorage），不会上传到任何服务器；可到 platform.deepseek.com 获取</span>
+        <span class="muted">Key 默认仅在本页内存中使用；点击 AI 功能会经本地后端将问题与相关课表发送给 DeepSeek</span>
       </div>
       <label class="muted" for="dsPrompt">给 DeepSeek 的话（偏好、问题、要求都写这里；发送时自动带上当前课表）：</label>
 <textarea id="dsPrompt" rows="4">我希望早上的课不早于 9:30；数学和计算机课不要连着上；通勤只要不超过 10 分钟就行；中午 11am-2pm 之间最好留出约一个小时吃饭休息。</textarea>
@@ -597,6 +602,7 @@ const state = {
   },
 };
 const pendingRmp = new Set(); // 正在抓取 RMP 的老师，避免重复请求
+let courseWork = 0;
 let chatStreaming = false;   // DeepSeek 流式输出中（避免中途重建聊天框）
 
 // ---------- 中英文切换 ----------
@@ -769,7 +775,7 @@ const I18N_EN = {
   "方案推荐 ": "Schedule recommendation ",
   "还没有保存的对话": "No saved conversations",
   "确定清空全部对话记录？此操作不可恢复。": "Clear ALL conversation history? This cannot be undone.",
-  "Key 只保存在本机浏览器（localStorage），不会上传到任何服务器；可到 platform.deepseek.com 获取": "Key is stored only in this browser (localStorage), never uploaded; get one at platform.deepseek.com",
+  "Key 默认仅在本页内存中使用；点击 AI 功能会经本地后端将问题与相关课表发送给 DeepSeek": "The key stays in page memory. AI actions send the key, question and relevant schedule to DeepSeek through the local backend.",
   "给 DeepSeek 的话：": "Note for DeepSeek: ",
   "未填写": "not set",
   "请排序推荐。": "Please rank them.",
@@ -783,7 +789,7 @@ const I18N_EN = {
   "模型": "Model",
   "清除已保存的 Key": "Clear saved key",
   "已清除本地保存的 Key": "Saved key cleared",
-  "Key 只保存在本机浏览器（localStorage），不会上传到任何服务器": "The key is stored only in your browser (localStorage) and is never sent to any server",
+  "Key 只保存在本机浏览器（localStorage），不会上传到任何服务器": "AI actions send your key and relevant schedule to DeepSeek through the local backend.",
   "给 DeepSeek 的话（偏好、问题、要求都写这里；发送时自动带上当前课表）：": "Message for DeepSeek (preferences, questions, requests; your current schedule is attached automatically):",
   "发送问题": "Ask",
   "复制当前课表文本": "Copy current schedule",
@@ -926,12 +932,20 @@ async function api(path, options = {}) {
   const resp = await fetch(path, options);
   let data = {};
   try { data = await resp.json(); } catch (e) {}
-  if (!resp.ok) throw new Error(data.error || (t("请求失败 ") + resp.status));
+  if (!resp.ok) {
+    if (data.code === "AUTH_REQUIRED") {
+      $("authStatus").textContent = "需要登录 UCSD；原课表保留，可离线查看";
+      $("ucsdLogin").disabled = false;
+    }
+    const error = new Error(data.error || (t("请求失败 ") + resp.status));
+    error.code = data.code;
+    throw error;
+  }
   return data;
 }
 
 function escapeHtml(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // 轻量 Markdown 渲染（加粗、斜体、标题、列表、行内代码、代码块）
@@ -1053,32 +1067,30 @@ async function streamDeepSeek(payload, onProgress, targets) {
 function setStatus(msg) { $("status").textContent = msg || ""; }
 
 // ---------- 本地保存：课程状态 + 对话记录（写入 saved_data.json） ----------
-async function saveAppState() {
+let saveChain = Promise.resolve();
+function saveAppState() {
+  const payload = JSON.stringify({state: {
+    term: state.term, courses: state.courses, locks: state.locks, pins: state.pins,
+    collapsed: state.collapsed, options: state.options,
+    wizard: {decided: state.wizard.decided || {}, current: state.wizard.current, pinned: state.wizard.pinned || []},
+    current_schedule: state.schedules[state.selected] || null,
+  }, combos: state.combos});
+  const next = saveChain.catch(() => {}).then(() => saveAppStatePayload(payload));
+  saveChain = next;
+  return next;
+}
+async function saveAppStatePayload(payload) {
   try {
     await api("/api/state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        state: {
-          term: state.term,
-          courses: state.courses,
-          locks: state.locks,
-          pins: state.pins,
-          collapsed: state.collapsed,
-          options: state.options,
-          wizard: {
-            decided: JSON.parse(JSON.stringify(state.wizard.decided || {})),
-            current: state.wizard.current,
-            pinned: [...(state.wizard.pinned || [])],
-          },
-          current_schedule: state.schedules[state.selected]
-            ? JSON.parse(JSON.stringify(state.schedules[state.selected]))
-            : null,
-        },
-        combos: state.combos,
-      }),
+      body: payload,
     });
-  } catch (e) {}
+    return true;
+  } catch (e) {
+    setStatus("保存失败，当前内容仍在页面中：" + e.message);
+    return false;
+  }
 }
 
 function scheduleSaveState() {
@@ -1086,18 +1098,22 @@ function scheduleSaveState() {
   state.savedTimer = setTimeout(saveAppState, 800);
 }
 
-async function restoreAppState() {
+async function restoreAppState(term = null) {
   try {
-    const d = await api("/api/state");
+    const d = await api("/api/state" + (term ? "?term=" + encodeURIComponent(term) : ""));
     const st = d.state || {};
-    if (st.courses && st.courses.length) {
+    {
       state.term = st.term || state.term;
-      state.courses = st.courses;
+      state.courses = st.courses || [];
       state.locks = st.locks || {};
       state.pins = st.pins || {};
       state.collapsed = st.collapsed || {};
-      if (st.options) Object.assign(state.options, st.options);
+      state.options = Object.assign({only_open: false, use_walking: true}, st.options || {});
     }
+    resetWizard();
+    state.schedules = [];
+    state.selected = 0;
+    state.compare = [];
     if (st.wizard && st.wizard.decided) {
       state.wizard.decided = JSON.parse(JSON.stringify(st.wizard.decided));
       state.wizard.current = st.wizard.current || null;
@@ -1109,6 +1125,7 @@ async function restoreAppState() {
     }
     state.combos = d.combos || [];
     state.conversations = d.conversations || [];
+    ensureTermOption();
     $("termSel").value = state.term;
     $("optOpen").checked = state.options.only_open;
     $("optWalk").checked = state.options.use_walking;
@@ -1117,8 +1134,11 @@ async function restoreAppState() {
     renderFavorites();
     renderSchedules();
     state.courses.forEach(loadRmpForCourse);
+    renderWizard();
+    setStatus("已恢复 " + state.term + " 本地草稿；座位和分班请登录后刷新");
     if (document.body.classList.contains("mode-wizard")) refreshWizardFeasibility();
-  } catch (e) {}
+    return true;
+  } catch (e) { setStatus("无法恢复课程草稿：" + e.message); return false; }
 }
 
 async function loadRmpForCourse(c) {
@@ -1151,7 +1171,7 @@ function renderConversations() {
     item.className = "conv-item";
     const time = c.created_at ? new Date(c.created_at).toLocaleString("zh-CN") : "";
     item.innerHTML =
-      "<span>" + (c.title || "对话") + ' <span class="muted">' + time + "</span></span>" +
+      "<span>" + escapeHtml(c.title || "对话") + ' <span class="muted">' + time + "</span></span>" +
       '<span><button class="ghost" data-view>查看</button> <button class="ghost" data-del>删除</button></span>';
     item.querySelector("[data-view]").addEventListener("click", () => {
       $("dsOut").style.display = "block";
@@ -1266,7 +1286,12 @@ function saveCombo() {
   renderFavorites();
 }
 
-function loadComboById(id) {
+async function loadComboById(id) {
+  if (courseWork || $("termSel").disabled || chatStreaming) { setStatus("请等待当前操作完成后再加载收藏"); return; }
+  clearTimeout(state.savedTimer);
+  if (!(await saveAppState())) return;
+  state.selected = 0;
+  state.compare = [];
   const combo = state.combos.find(c => c.id === id);
   if (!combo) return;
   const st = JSON.parse(JSON.stringify(combo.state || {}));
@@ -1340,7 +1365,8 @@ async function loadTerms() {
       o.value = t; o.textContent = t;
       sel.appendChild(o);
     }
-    if (!d.terms.includes(state.term) && d.terms.length) state.term = d.terms[0];
+    if (!(d.terms || []).includes(state.term)) ensureTermOption();
+    setStatus((d.terms || []).includes("WI27") ? "WI27 已开放，可从学期下拉选择" : "已连接；官方当前学期列表未包含 WI27");
     sel.value = state.term;
     renderTermUpdated();
   } catch (e) {
@@ -1368,15 +1394,30 @@ $("courseInput").addEventListener("input", () => {
   }, 250);
 });
 
-$("termSel").addEventListener("change", () => {
-  state.term = $("termSel").value;
-  renderTermUpdated();
-  state.courses = [];
-  state.schedules = [];
-  resetWizard();
-  renderCourseList();
-  renderSchedules();
-  scheduleSaveState();
+$("termSel").addEventListener("change", async () => {
+  const sel = $("termSel");
+  const next = sel.value;
+  const previous = state.term;
+  if (next === previous) return;
+  if (courseWork || chatStreaming) {
+    sel.value = previous;
+    setStatus("请等待课程加载或排课完成，再切换学期");
+    return;
+  }
+  sel.disabled = true;
+  clearTimeout(state.savedTimer);
+  if (!(await saveAppState())) {
+    sel.value = previous;
+    sel.disabled = false;
+    return;
+  }
+  try {
+    // Read first; a failed load must not replace the visible draft.
+    if (!(await restoreAppState(next))) { sel.value = previous; return; }
+    $("courseSuggest").innerHTML = "";
+    renderTermUpdated();
+    await saveAppState();
+  } finally { sel.disabled = false; }
 });
 
 $("optOpen").addEventListener("change", () => { state.options.only_open = $("optOpen").checked; scheduleSaveState(); });
@@ -1384,11 +1425,12 @@ $("optWalk").addEventListener("change", () => { state.options.use_walking = $("o
 
 async function addCourse() {
   const code = normalizeCourseCode($("courseInput").value);
-  if (!code) return;
+  if (!code || $("termSel").disabled) return;
   if (state.courses.some(c => c.module_code === code)) {
     $("courseInput").value = "";
     return;
   }
+  courseWork++;
   try {
     $("courseMsg").innerHTML = "";
     const d = await api("/api/course", {
@@ -1396,6 +1438,7 @@ async function addCourse() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ term: state.term, module_code: code }),
     });
+    if (state.courses.some(c => c.module_code === code)) return;
     state.courses.push(d.course);
     $("courseInput").value = "";
     renderCourseList();
@@ -1404,8 +1447,8 @@ async function addCourse() {
     renderWizard();
     if (document.body.classList.contains("mode-wizard")) refreshWizardFeasibility();
   } catch (e) {
-    $("courseMsg").innerHTML = '<div class="err">' + e.message + "</div>";
-  }
+    $("courseMsg").innerHTML = '<div class="err">' + escapeHtml(e.message) + "</div>";
+  } finally { courseWork--; }
 }
 
 $("addBtn").addEventListener("click", addCourse);
@@ -1481,12 +1524,12 @@ function renderCourseList() {
     const fams = Object.keys(c.family_combos || {}).sort((a, b) => parseInt(a) - parseInt(b));
     const pinOptions = ['<option value="">不限</option>'].concat(fams.map(f => {
       const sel = state.pins[c.module_code] === f ? " selected" : "";
-      return '<option value="' + f + '"' + sel + ">分组 " + f + "</option>";
+      return '<option value="' + escapeHtml(f) + '"' + sel + ">分组 " + escapeHtml(f) + "</option>";
     })).join("");
     const lockOptions = ['<option value="">不限老师（所有分班）</option>']
       .concat((c.instructors || []).map(n => {
         const sel = state.locks[c.module_code] === n ? " selected" : "";
-        return '<option value="' + n.replace(/"/g, "&quot;") + '"' + sel + ">" + n + "</option>";
+        return '<option value="' + escapeHtml(n) + '"' + sel + ">" + escapeHtml(n) + "</option>";
       })).join("");
     const pinLockHtml = isWizardMode
       ? ""
@@ -1502,11 +1545,11 @@ function renderCourseList() {
         const sc = score && score.avgRating
           ? '<span class="rmp-score">RMP ' + score.avgRating + " · " + score.numRatings + "人 · " + score.wouldTakeAgainPercent + "%愿再上 · 难度" + score.avgDifficulty + "</span>"
           : "";
-        return "<span>" + n + sc + "</span>";
+        return "<span>" + escapeHtml(n) + sc + "</span>";
       }).join("<br>") || "待定";
       const typeCell = s.type === "lecture" ? "<b>" + typeAbbr(s.type) + "</b>" : typeAbbr(s.type);
-      rows += "<tr><td>" + s.section_code + "</td><td>" + typeCell + "</td><td>" + dayTime +
-        "</td><td>" + (s.meetings.filter(m => m.kind !== "final").map(m => m.room || m.building || "?").filter((v,i,a) => a.indexOf(v) === i).join(", ") || "?") +
+      rows += "<tr><td>" + escapeHtml(s.section_code) + "</td><td>" + typeCell + "</td><td>" + escapeHtml(dayTime) +
+        "</td><td>" + escapeHtml(s.meetings.filter(m => m.kind !== "final").map(m => m.room || m.building || "?").filter((v,i,a) => a.indexOf(v) === i).join(", ") || "?") +
         "</td><td>" + instrCells + "</td><td>" + seats + "</td></tr>";
     }
 
@@ -1514,7 +1557,7 @@ function renderCourseList() {
       '<div class="course-head">' +
         '<button type="button" class="caret-btn' + (isCollapsed ? "" : " open") + '" data-action="toggle" title="展开/折叠分班">▸</button>' +
         '<span class="dot" style="background:' + color + '"></span>' +
-        '<b>' + c.module_code + " " + c.module_name + '</b>' +
+        '<b>' + escapeHtml(c.module_code) + " " + escapeHtml(c.module_name) + '</b>' +
         '<span class="units">' + c.units + " 学分</span>" +
         pinLockHtml +
         '<button type="button" class="danger ghost" data-action="remove">移除</button>' +
@@ -1565,33 +1608,9 @@ async function generate() {
   $("genProgress").style.display = "block";
   setProgress(0, "正在准备…");
   try {
-    const d = await api("/api/schedules", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        term: state.term,
-        modules: state.courses.map(c => c.module_code),
-        locks: state.locks,
-        pins: state.pins,
-        options: state.options,
-      }),
-    });
-    const jobId = d.job_id;
-    let finished = false;
-    while (!finished) {
-      await sleep(400);
-      const p = await api("/api/progress?job=" + encodeURIComponent(jobId));
-      const prog = p.progress || {};
-      updateProgressUI(prog);
-      if (prog.status === "error") throw new Error(prog.error || "生成失败");
-      if (prog.status === "done") {
-        const r = await api("/api/schedules/result?job=" + encodeURIComponent(jobId));
-        state.schedules = r.schedules || [];
-        state.selected = 0;
-        renderSchedules();
-        finished = true;
-      }
-    }
+    state.schedules = await requestSchedules(state.courses.map(c => c.module_code), state.locks, state.pins, {}, state.options, updateProgressUI);
+    state.selected = 0;
+    renderSchedules();
     $("genProgress").style.display = "none";
     if (state.schedules.length) {
       $("genMsg").innerHTML = '<div class="ok">共找到 ' + state.schedules.length + " 个不冲突的组合（已按学分、步行时间排序）</div>";
@@ -1600,7 +1619,7 @@ async function generate() {
     }
   } catch (e) {
     $("genProgress").style.display = "none";
-    $("genMsg").innerHTML = '<div class="err">' + e.message + "</div>";
+    $("genMsg").innerHTML = '<div class="err">' + escapeHtml(e.message) + "</div>";
   } finally {
     btn.disabled = false;
     btn.textContent = "生成全部可行课表";
@@ -1673,6 +1692,8 @@ $("favSaveCombo").addEventListener("click", saveCombo);
 
 async function refreshCourseData() {
   if (!state.courses.length) return;
+  if ($("termSel").disabled) return;
+  courseWork++;
   const btn = $("refreshData");
   if (btn) { btn.disabled = true; btn.textContent = "刷新中…"; }
   try {
@@ -1705,6 +1726,7 @@ async function refreshCourseData() {
   } catch (e) {
     $("genMsg").innerHTML = '<div class="err">刷新失败：' + escapeHtml(e.message) + "</div>";
   } finally {
+    courseWork--;
     if (btn) { btn.disabled = false; btn.textContent = "刷新课程数据"; }
   }
 }
@@ -2169,8 +2191,8 @@ function renderCalendar(s, targetEl) {
       if (m.date) continue; // 一次性期中考试只进详情卡片
       blk.style.background = color;
       blk.style.color = "#fff";
-      blk.innerHTML = "<b>" + c.module_code + "</b>" + (c.section_code || "") + " · " + (m.room || m.building || "?") +
-        (c.instructors && c.instructors.length ? " · " + c.instructors[0] : "");
+      blk.innerHTML = "<b>" + escapeHtml(c.module_code) + "</b>" + escapeHtml((c.section_code || "") + " · " + (m.room || m.building || "?") +
+        (c.instructors && c.instructors.length ? " · " + c.instructors[0] : ""));
       blk.title = c.module_code + " " + c.module_name + "\n" + c.section_code + "\n" +
         (m.start_display || "") + "-" + (m.end_display || "") + "\n" + (m.room || "") + "\n老师: " + (c.instructors || []).join(", ");
       dayCols[di].appendChild(blk);
@@ -2321,7 +2343,7 @@ function renderDetails(s) {
         bits.push(t1 + " " + (t.from || "?") + " → " + t2 + " " + (t.to || "?") + "：无法估算");
       }
     });
-    html += bits.join("<br>") + "</div>";
+    html += bits.map(escapeHtml).join("<br>") + "</div>";
   }
   html += "</div>";
 
@@ -2334,7 +2356,7 @@ function renderDetails(s) {
       if (m.kind !== "final" && !m.tba && m.date) {
         examCount++;
         html += "<div>" + escapeHtml(c.module_code) + " · 考试 " + fmtDateShort(m.date) + " " +
-          (m.start_display || "") + "-" + (m.end_display || "") + " · " + (m.room || m.building || "?") + "</div>";
+          escapeHtml((m.start_display || "") + "-" + (m.end_display || "") + " · " + (m.room || m.building || "?")) + "</div>";
       }
     }
   }
@@ -2479,7 +2501,6 @@ $("copyBtn").addEventListener("click", () => {
   }).catch(() => { $("dsMsg").innerHTML = '<div class="err">复制失败，请手动选择</div>'; });
 });
 
-loadTerms();
 setInterval(renderTermUpdated, 60000);
 
 // 本地记住 DeepSeek 设置（Key / 模型 / 目标），刷新页面后自动恢复
@@ -2487,7 +2508,7 @@ const DEFAULT_PROMPT_EN = "I prefer classes no earlier than 9:30 AM; math and CS
 
 function loadDsSettings() {
   const savedKey = localStorage.getItem("dsKey");
-  if (savedKey) $("dsKey").value = savedKey;
+  if (savedKey) { $("dsKey").value = savedKey; localStorage.removeItem("dsKey"); }
   const savedModel = localStorage.getItem("dsModel");
   if (savedModel) {
     const legacy = { "deepseek-chat": "flash-fast", "deepseek-reasoner": "flash-think" };
@@ -2499,7 +2520,7 @@ function loadDsSettings() {
 }
 
 $("dsKey").addEventListener("input", () => {
-  localStorage.setItem("dsKey", $("dsKey").value.trim());
+  localStorage.removeItem("dsKey");
 });
 $("dsModel").addEventListener("change", () => {
   localStorage.setItem("dsModel", $("dsModel").value);
@@ -2514,7 +2535,6 @@ $("dsKeyClear").addEventListener("click", () => {
 });
 
 loadDsSettings();
-restoreAppState();
 initSplitter();
 $("courseInput").focus();
 updateExportButtons();
@@ -2530,7 +2550,10 @@ $("convClear").addEventListener("click", async () => {
 
 // ===================== 逐门向导 =====================
 
-async function requestSchedules(modules, locks, pins, sectionPins, options) {
+async function requestSchedules(modules, locks, pins, sectionPins, options, onProgress = null) {
+  if ($("termSel").disabled) throw new Error("正在切换学期，请稍候");
+  courseWork++;
+  try {
   const d = await api("/api/schedules", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -2544,16 +2567,20 @@ async function requestSchedules(modules, locks, pins, sectionPins, options) {
     }),
   });
   const jobId = d.job_id;
+  const deadline = Date.now() + 300000;
   for (;;) {
+    if (Date.now() > deadline) throw new Error("排课超时，请缩小分班范围后重试");
     await sleep(300);
     const p = await api("/api/progress?job=" + encodeURIComponent(jobId));
     const prog = p.progress || {};
+    if (onProgress) onProgress(prog);
     if (prog.status === "error") throw new Error(prog.error || "生成失败");
     if (prog.status === "done") {
       const r = await api("/api/schedules/result?job=" + encodeURIComponent(jobId));
       return r.schedules || [];
     }
   }
+  } finally { courseWork--; }
 }
 
 function wizardCourses() { return state.courses; }
@@ -2773,7 +2800,7 @@ function renderWizard() {
       for (const mod of order) {
         const c = wizardCourses().find(x => x.module_code === mod);
         const n = state.wizard.feasibility ? Object.keys(state.wizard.feasibility.familyCounts[mod] || {}).length : "?";
-        html += '<button class="ghost wiz-pick" data-pick="' + mod + '">' + escapeHtml(c.module_code) + '<span class="badge">' + n + " 个可行班</span></button>";
+        html += '<button class="ghost wiz-pick" data-pick="' + escapeHtml(mod) + '">' + escapeHtml(c.module_code) + '<span class="badge">' + n + " 个可行班</span></button>";
       }
       html += "</div>";
     } else {
@@ -2799,9 +2826,9 @@ function renderWizard() {
           : "";
         const disabled = opt.count === 0 ? " disabled" : "";
         const isDraft = state.wizard.draft && state.wizard.draft.family === opt.fam;
-        html += '<button class="wiz-lecture" data-lecture="' + opt.fam + '"' + disabled +
+        html += '<button class="wiz-lecture" data-lecture="' + escapeHtml(opt.fam) + '"' + disabled +
           ' style="' + (isDraft ? "outline:2px solid var(--accent);outline-offset:1px" : "") + '">' +
-          "<b>分组" + opt.fam + " · " + escapeHtml(instr) + "</b>" + rmpTxt +
+          "<b>分组" + escapeHtml(opt.fam) + " · " + escapeHtml(instr) + "</b>" + rmpTxt +
           '<span class="wiz-meta"><br>' + escapeHtml(times) + seatsTxt + "</span>" +
           (opt.count ? ' <span class="badge">' + opt.count + " 种组合</span>" : ' <span class="badge">不可行</span>') +
           "</button>";
@@ -2824,7 +2851,7 @@ function renderWizard() {
           const seatsTxt = (s.capacity != null && s.seats_available != null)
             ? " · 剩余座位：" + s.seats_available + "/" + s.capacity
             : "";
-          html += '<button class="ghost" data-comp="' + s.section_code + '" data-type="' + escapeHtml(grp.type) + '"' + sel + ' style="margin:2px">' +
+          html += '<button class="ghost" data-comp="' + escapeHtml(s.section_code) + '" data-type="' + escapeHtml(grp.type) + '"' + sel + ' style="margin:2px">' +
             escapeHtml(s.section_code) + " " + escapeHtml(times) + seatsTxt + "（" + s.count + "）</button>";
         }
         html += "</div>";
@@ -2943,7 +2970,7 @@ function bindWizardButtons() {
         $("genMsg").innerHTML = '<div class="muted">还有 ' + (schedules.length - 1) + " 个组件变体，可到“全部方案模式”查看。</div>";
       }
     } catch (e) {
-      $("genMsg").innerHTML = '<div class="err">' + e.message + "</div>";
+      $("genMsg").innerHTML = '<div class="err">' + escapeHtml(e.message) + "</div>";
     } finally {
       finalBtn.disabled = false;
       finalBtn.textContent = "生成最终课表并查看日历";
@@ -3281,6 +3308,52 @@ $("modeSel").addEventListener("change", () => {
     renderWizard();
     if (!state.wizard.feasibility && wizardCourses().length && !state.wizard.loading) refreshWizardFeasibility();
   }
+});
+
+
+// Login status is independent of the locally saved schedule.
+function ensureTermOption() {
+  const sel = $("termSel");
+  if (![...sel.options].some(o => o.value === state.term)) {
+    const o = new Option(state.term + "（本地草稿）", state.term);
+    sel.add(o);
+  }
+}
+let authPolling = false;
+let lastAuthState = "";
+async function checkUCSD(force = false) {
+  if (authPolling) return;
+  authPolling = true;
+  try {
+    const auth = await api("/api/auth/status");
+    $("authStatus").textContent = auth.message;
+    $("ucsdLogin").disabled = auth.state === "signing_in";
+    $("ucsdLogout").hidden = auth.state === "signed_out";
+    if (auth.state === "authenticated" && (lastAuthState !== auth.state || force)) await loadTerms();
+    lastAuthState = auth.state;
+  } catch (e) { $("authStatus").textContent = "无法连接本地服务：" + e.message; }
+  finally { authPolling = false; }
+}
+$("ucsdLogin").addEventListener("click", async () => {
+  $("ucsdLogin").disabled = true;
+  try { await api("/api/auth/login", {method: "POST"}); }
+  catch (e) { setStatus(e.message); }
+  finally { await checkUCSD(); }
+});
+$("ucsdCheck").addEventListener("click", () => checkUCSD(true));
+$("ucsdLogout").addEventListener("click", async () => {
+  try {
+    await api("/api/auth/logout", {method: "POST"});
+    await checkUCSD();
+    setStatus("本地登录已清除；保存的课表保留");
+  } catch (e) { setStatus(e.message); }
+});
+window.addEventListener("DOMContentLoaded", async () => {
+  await restoreAppState();
+  ensureTermOption();
+  $("termSel").value = state.term;
+  await checkUCSD();
+  setInterval(checkUCSD, 3000);
 });
 
 </script>

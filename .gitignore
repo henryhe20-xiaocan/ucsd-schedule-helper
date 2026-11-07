@@ -6,3 +6,9 @@ routes_cache.json
 rmp_cache.json
 .DS_Store
 *.log
+.backups/
+saved_data.json.tmp
+*.dpapi
+*.tmp
+auth-state.json
+playwright/.auth/
