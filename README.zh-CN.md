@@ -27,7 +27,7 @@ TSS 系统的加入让众多学生苦不堪言，学校官方的 planner 体验�
 1. 安装 Python 3.10 或更新版本，并勾选 **Add Python to PATH**。
 2. 运行 `安装登录组件.bat`，安装 Playwright 和 Chromium。
 3. 运行 `start.bat`，打开 <http://127.0.0.1:8778/>。
-4. 点击 **登录 UCSD**，在专用浏览器窗口中完成 UCSD 登录和 Duo。使用助手时保持该窗口打开。
+4. 点击 **登录 UCSD**，如果弹出专用窗口，在里面完成 UCSD 登录和 Duo。验证成功后窗口会关闭，助手继续在后台查课。重启助手后，点击登录按钮可尝试恢复会话。
 5. 选择学期，输入课程代码，例如 `MATH 20D`。
 
 学期列表来自 UCSD Class Planner。2026 年 11 月已实测 FA26 和 WI27 的课程查询。不同学期分别保存草稿，已有草稿可离线查看。
@@ -50,8 +50,8 @@ TSS 系统的加入让众多学生苦不堪言，学校官方的 planner 体验�
 
 ## 数据与隐私
 
-- 服务只监听 `127.0.0.1`。登录在专用浏览器中完成，保存的会话由 Windows DPAPI 加密，位于 `%LOCALAPPDATA%/UCSD-Schedule-Helper/`。
-- 可重新登录或清除本地会话。证书报错时请检查网络和证书设置。
+- 服务只监听 `127.0.0.1`。登录在专用浏览器中完成，Chromium 专用配置位于 `%LOCALAPPDATA%/UCSD-Schedule-Helper/browser-profile/`。
+- 可重新登录，或清除专用浏览器配置及其中的登录数据。证书报错时请检查网络和证书设置。
 - 草稿、收藏和 AI 对话保存在 `saved_data.json`。分享时请排除该文件及本地备份。
 - 可选的 DeepSeek 功能会将 API Key、问题及相关课程或课表发送给 DeepSeek。Key 在请求之间保存在页面内存。
 - 老师评分和步行估算使用 Rate My Professor 和 UCSD Wayfinding。
@@ -61,7 +61,7 @@ TSS 系统的加入让众多学生苦不堪言，学校官方的 planner 体验�
 ```
 scheduler.py   本地 HTTP 服务和排课引擎
 ucsd_session.py  UCSD 登录与认证请求
-private_state.py Windows DPAPI 会话加密
+private_state.py 迁移旧版 Windows DPAPI 会话
 requirements.txt Playwright 依赖
 index.html     单页界面（原生 HTML/CSS/JS，无构建步骤）
 start.bat      Windows 启动器（端口 8778）

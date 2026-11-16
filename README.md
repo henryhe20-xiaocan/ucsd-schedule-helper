@@ -27,7 +27,7 @@ A local-first course scheduling tool for UCSD students. It pulls real section da
 1. Install Python 3.10 or later and enable **Add Python to PATH**.
 2. Run `安装登录组件.bat` to install Playwright and Chromium.
 3. Run `start.bat` and open <http://127.0.0.1:8778/>.
-4. Click the UCSD sign-in button. Complete sign-in and Duo in the dedicated browser window and keep it open.
+4. Click the UCSD sign-in button. Complete UCSD sign-in and Duo if a window opens. After verification, the window closes and course lookup continues in the background. After restarting the helper, click the sign-in button to try restoring the session.
 5. Select a term and enter a course code such as `MATH 20D`.
 
 The term list comes from UCSD Class Planner. FA26 and WI27 were verified in live course queries in November 2026. The helper saves a separate draft for each term. Saved drafts can be viewed offline.
@@ -50,8 +50,8 @@ Get an API key at [platform.deepseek.com](https://platform.deepseek.com). The ke
 
 ## Data and privacy
 
-- The local server listens on `127.0.0.1`. The dedicated browser handles UCSD authentication. Windows DPAPI encrypts the saved session under `%LOCALAPPDATA%/UCSD-Schedule-Helper/`.
-- Use the local sign-in controls to reconnect or clear the saved session. For certificate errors, check your network and certificate settings.
+- The local server listens on `127.0.0.1`. The dedicated browser handles UCSD authentication. Chromium stores the dedicated browser profile under `%LOCALAPPDATA%/UCSD-Schedule-Helper/browser-profile/`.
+- Use the local sign-in controls to reconnect or clear the dedicated browser profile, including its saved sign-in data. For certificate errors, check your network and certificate settings.
 - Drafts, favorites, and AI history are stored in `saved_data.json`. Exclude that file and backups when sharing the project.
 - Optional DeepSeek features send the key, question, and relevant course or schedule data to DeepSeek. The key stays in page memory between requests.
 - Instructor ratings and walking estimates use Rate My Professor and UCSD Wayfinding.
@@ -61,7 +61,7 @@ Get an API key at [platform.deepseek.com](https://platform.deepseek.com). The ke
 ```
 scheduler.py   Local HTTP server and scheduling engine
 ucsd_session.py  UCSD sign-in and authenticated requests
-private_state.py Windows DPAPI session encryption
+private_state.py Migration of legacy Windows DPAPI sessions
 requirements.txt Playwright dependency
 index.html     Single-page UI (vanilla HTML/CSS/JS, no build step)
 start.bat      Windows launcher (port 8778)

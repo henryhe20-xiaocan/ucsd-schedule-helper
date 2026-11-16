@@ -748,11 +748,13 @@ def _schedule_job(job_id, term, modules, locks, options, pins=None, section_pins
         schedules = generate_schedules(models, locks, options, on_progress, pins, section_pins)
         prog["phase"] = "serialize"
         out = _serialize_schedules(schedules)
-        prog["status"] = "done"
-        prog["result"] = out
+        with _jobs_lock:
+            prog.update(status="done", result=out)
     except Exception as e:
-        prog["status"] = "error"
-        prog["error"] = str(e)
+        with _jobs_lock:
+            prog.update(status="error", error=str(e))
+            if isinstance(e, SessionError):
+                prog["error_code"] = e.code
 
 
 # ----------------------------- DeepSeek -----------------------------

@@ -590,6 +590,7 @@ const state = {
     loading: false,
     feasibility: null,
     conflictInfo: null,
+    calculationError: null,
   },
   conversations: [], // DeepSeek 对话记录
   savedTimer: null,  // 自动保存防抖定时器
@@ -936,6 +937,9 @@ async function api(path, options = {}) {
     if (data.code === "AUTH_REQUIRED") {
       $("authStatus").textContent = "需要登录 UCSD；原课表保留，可离线查看";
       $("ucsdLogin").disabled = false;
+    } else if (data.code === "AUTH_PENDING") {
+      $("authStatus").textContent = data.error;
+      $("ucsdLogin").disabled = true;
     }
     const error = new Error(data.error || (t("请求失败 ") + resp.status));
     error.code = data.code;
@@ -1136,7 +1140,6 @@ async function restoreAppState(term = null) {
     state.courses.forEach(loadRmpForCourse);
     renderWizard();
     setStatus("已恢复 " + state.term + " 本地草稿；座位和分班请登录后刷新");
-    if (document.body.classList.contains("mode-wizard")) refreshWizardFeasibility();
     return true;
   } catch (e) { setStatus("无法恢复课程草稿：" + e.message); return false; }
 }
@@ -1417,7 +1420,10 @@ $("termSel").addEventListener("change", async () => {
     $("courseSuggest").innerHTML = "";
     renderTermUpdated();
     await saveAppState();
-  } finally { sel.disabled = false; }
+  } finally {
+    sel.disabled = false;
+    refreshWizardIfActive();
+  }
 });
 
 $("optOpen").addEventListener("change", () => { state.options.only_open = $("optOpen").checked; scheduleSaveState(); });
@@ -2574,7 +2580,11 @@ async function requestSchedules(modules, locks, pins, sectionPins, options, onPr
     const p = await api("/api/progress?job=" + encodeURIComponent(jobId));
     const prog = p.progress || {};
     if (onProgress) onProgress(prog);
-    if (prog.status === "error") throw new Error(prog.error || "生成失败");
+    if (prog.status === "error") {
+      const error = new Error(prog.error || "生成失败");
+      error.code = prog.error_code;
+      throw error;
+    }
     if (prog.status === "done") {
       const r = await api("/api/schedules/result?job=" + encodeURIComponent(jobId));
       return r.schedules || [];
@@ -2608,10 +2618,24 @@ function computeFeasibility(schedules) {
   return { total: schedules.length, familyCounts, sectionCounts };
 }
 
+let wizardCalculation = 0;
+function refreshWizardIfActive() {
+  if (document.body.classList.contains("mode-wizard")) void refreshWizardFeasibility();
+}
+
 async function refreshWizardFeasibility() {
-  if (!wizardCourses().length) return;
-  state.wizard.loading = true;
+  const calculation = ++wizardCalculation;
+  state.wizard.loading = false;
+  state.wizard.feasibility = null;
   state.wizard.conflictInfo = null;
+  state.wizard.calculationError = null;
+  if (!wizardCourses().length) return;
+  if (lastAuthState && lastAuthState !== "authenticated") {
+    state.wizard.calculationError = { needsLogin: true };
+    renderWizard();
+    return;
+  }
+  state.wizard.loading = true;
   renderWizard();
   try {
     const pins = {};
@@ -2627,13 +2651,16 @@ async function refreshWizardFeasibility() {
       secPins,
       { only_open: false, use_walking: false }
     );
+    if (calculation !== wizardCalculation) return;
     state.wizard.feasibility = computeFeasibility(schedules);
     if (state.wizard.feasibility.total === 0) {
       state.wizard.conflictInfo = { message: "当前已定的选择互相冲突，没有可行组合。" };
     }
   } catch (e) {
-    state.wizard.feasibility = null;
-    state.wizard.conflictInfo = { message: "计算失败：" + e.message };
+    if (calculation !== wizardCalculation) return;
+    state.wizard.calculationError = {
+      message: e.message, needsLogin: ["AUTH_REQUIRED", "AUTH_PENDING"].includes(e.code),
+    };
   }
   state.wizard.loading = false;
   renderWizard();
@@ -2784,6 +2811,22 @@ function renderWizard() {
     renderWizardPreview();
     return;
   }
+  const failure = state.wizard.calculationError;
+  if (failure) {
+    if (failure.needsLogin && lastAuthState !== "authenticated") {
+      const waiting = ["signing_in", "recovering"].includes(lastAuthState);
+      html += '<div class="muted">' + (waiting
+        ? "正在等待 UCSD 验证。连接后会自动重新计算。"
+        : '连接 UCSD 后即可继续计算。<button id="wizLogin" type="button">登录 UCSD</button>') + "</div>";
+    } else {
+      const message = failure.needsLogin ? "连接刚恢复或发生变化，可以重新计算。" : "计算失败：" + failure.message;
+      html += '<div class="err">' + escapeHtml(message) + '</div><button id="wizRetry" type="button">重新计算</button>';
+    }
+    body.innerHTML = html;
+    bindWizardButtons();
+    renderWizardPreview();
+    return;
+  }
   if (state.wizard.conflictInfo) {
     html += '<div class="err">' + escapeHtml(state.wizard.conflictInfo.message) + "</div>";
     html += '<div class="row" style="margin:6px 0"><button id="conflictSolve" class="ghost">列出可行替代</button>';
@@ -2867,6 +2910,8 @@ function renderWizard() {
 function bindWizardButtons() {
   const body = $("wizardBody");
   if (!body) return;
+  $("wizLogin")?.addEventListener("click", () => $("ucsdLogin").click());
+  $("wizRetry")?.addEventListener("click", refreshWizardFeasibility);
   body.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", () => {
     state.wizard.current = b.dataset.pick;
     state.wizard.draft = null;
@@ -3081,6 +3126,7 @@ async function solveConflict() {
 }
 
 function resetWizard() {
+  wizardCalculation++;
   state.wizard.decided = {};
   state.wizard.current = null;
   state.wizard.pinned = [];
@@ -3088,6 +3134,7 @@ function resetWizard() {
   state.wizard.loading = false;
   state.wizard.feasibility = null;
   state.wizard.conflictInfo = null;
+  state.wizard.calculationError = null;
 }
 
 function extractJson(text) {
@@ -3327,10 +3374,16 @@ async function checkUCSD(force = false) {
   try {
     const auth = await api("/api/auth/status");
     $("authStatus").textContent = auth.message;
-    $("ucsdLogin").disabled = auth.state === "signing_in";
+    $("ucsdLogin").disabled = ["signing_in", "recovering"].includes(auth.state);
     $("ucsdLogout").hidden = auth.state === "signed_out";
-    if (auth.state === "authenticated" && (lastAuthState !== auth.state || force)) await loadTerms();
+    const changed = lastAuthState !== auth.state;
     lastAuthState = auth.state;
+    if (auth.state === "authenticated" && (changed || force)) {
+      refreshWizardIfActive();
+      await loadTerms();
+    } else if (changed) {
+      refreshWizardIfActive();
+    }
   } catch (e) { $("authStatus").textContent = "无法连接本地服务：" + e.message; }
   finally { authPolling = false; }
 }
@@ -3353,7 +3406,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   ensureTermOption();
   $("termSel").value = state.term;
   await checkUCSD();
-  setInterval(checkUCSD, 3000);
+  setInterval(() => checkUCSD(), 3000);
+  window.addEventListener("focus", () => checkUCSD());
 });
 
 </script>
